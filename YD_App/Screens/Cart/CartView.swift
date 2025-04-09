@@ -24,7 +24,7 @@ struct CartView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
                         
-                        ViewHeader(title: "TU ORDEN")
+                        ViewHeader(title: "Resumen de compra")
                         
                         Divider()
                         .background(.black)
