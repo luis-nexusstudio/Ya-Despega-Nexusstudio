@@ -309,7 +309,7 @@ struct EmptyCartView: View {
                 .fontWeight(.semibold)
                 .foregroundColor(.secondary)
 
-            Text("Agrega boletos para continuar con tu compra.")
+            Text("Tu carrito está vacío. ¡Hora de llenarlo!.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
