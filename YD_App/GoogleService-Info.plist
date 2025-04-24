@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<array>
+				<string>com.googleusercontent.apps.810430139912-d94nqn7kn83njpc7us9vqfttslirrev4</string>
+    		</array>
+		</dict>
+	</array>
+	<key>CLIENT_ID</key>
+	<string>810430139912-d94nqn7kn83njpc7us9vqfttslirrev4.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.810430139912-d94nqn7kn83njpc7us9vqfttslirrev4</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBjmcZCGS1l_sCQhAJUmJmVIVeCib6IlGw</string>
+	<key>GCM_SENDER_ID</key>
+	<string>810430139912</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.nexusstudio.ydapp</string>
+	<key>PROJECT_ID</key>
+	<string>yd-app-8de57</string>
+	<key>STORAGE_BUCKET</key>
+	<string>yd-app-8de57.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:810430139912:ios:50561d25bf303443fb8bbd</string>
+</dict>
+</plist>
