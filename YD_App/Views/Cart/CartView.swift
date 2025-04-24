@@ -56,7 +56,6 @@ struct CartView: View {
                 EmptyCartView()
             }
         }
-        .background(Color(.systemGroupedBackground))
     }
 }
 
@@ -284,7 +283,6 @@ struct OrderSummaryView: View {
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(Color(.systemGray4), lineWidth: 0.5)
                 )
-                .padding(.horizontal)
                 .padding(.bottom, 10)
                 .frame(maxWidth: .infinity)
             }

@@ -10,13 +10,25 @@ import SwiftUI
 import Combine
 
 class AppCoordinator: ObservableObject {
-    @Published var currentView: AnyView
-    private var cancellables = Set<AnyCancellable>()
+    @Published var currentView: AnyView = AnyView(EmptyView()) // Valor por defecto
     
-    init() {
-        let mainCoordinator = MainCoordinator()
-        self.currentView = AnyView(MainView().environmentObject(mainCoordinator))
+    private var loginCoordinator: LoginCoordinator?
 
+    init() {
+        // Llama a showLogin después de que self se inicialice completamente
+        DispatchQueue.main.async {
+            self.showLogin()
+        }
+    }
+
+    func showLogin() {
+        loginCoordinator = LoginCoordinator(onLoginSuccess: {
+            self.showMainView()
+        })
+        self.currentView = loginCoordinator!.currentView
+    }
+
+    func showMainView() {
+        self.currentView = AnyView(MainView())
     }
 }
-

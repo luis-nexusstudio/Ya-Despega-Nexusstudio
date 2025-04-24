@@ -41,7 +41,6 @@ struct HomeView: View {
                         .presentationDetents([.fraction(0.8), .large])
                 }
         }
-        .background(Color(.systemGroupedBackground))
     }
 }
 

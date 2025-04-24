@@ -32,11 +32,7 @@ struct MainView: View {
                 }
                 .tag(2)
 
-            LoginView()  // Pantalla Login
-                .tabItem {
-                    Label("Login", systemImage: "person.fill")
-                }
-                .tag(3)
+            
         }
         .environmentObject(cartViewModel)
     }

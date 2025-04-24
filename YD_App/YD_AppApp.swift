@@ -6,14 +6,20 @@
 //
 
 import SwiftUI
+import FirebaseCore
 
 @main
 struct YD_AppApp: App {
     @StateObject private var appCoordinator = AppCoordinator()
 
-        var body: some Scene {
-            WindowGroup {
-                appCoordinator.currentView
-            }
+    init() {
+        print("CLIENT ID:", FirebaseApp.app()?.options.clientID ?? "NO CLIENT ID")
+        FirebaseApp.configure()
+    
+    }
+    var body: some Scene {
+        WindowGroup {
+            appCoordinator.currentView
         }
+    }
 }
