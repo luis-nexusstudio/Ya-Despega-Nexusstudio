@@ -65,7 +65,10 @@ struct LoginView: View {
                         }
                     },
                     onAppleLogin: {
-                        // Aquí irá la lógica del login con Apple
+                        if let rootVC = UIApplication.shared.windows.first?.rootViewController {
+                            authViewModel.signInWithApple(from: rootVC) { _ in
+                            }
+                        }
                     }
                 )
 

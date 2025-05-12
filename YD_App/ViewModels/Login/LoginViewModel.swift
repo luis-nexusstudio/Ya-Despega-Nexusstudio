@@ -9,6 +9,8 @@ import FirebaseAuth
 import Firebase
 import GoogleSignIn
 import SwiftUI
+import UIKit
+import AuthenticationServices
 
 class LoginViewModel: ObservableObject {
     @Published var isLoggedIn = false
@@ -67,6 +69,66 @@ class LoginViewModel: ObservableObject {
             print("Email Sign-In success:", authResult?.user.email ?? "")
             self.isLoggedIn = true
             completion(true)
+        }
+    }
+    
+    func signInWithApple(from viewController: UIViewController, completion: @escaping (Result<ASAuthorizationAppleIDCredential, Error>) -> Void) {
+        // Crear el proveedor de Apple ID y la solicitud
+        let appleIDProvider = ASAuthorizationAppleIDProvider()
+        let request = appleIDProvider.createRequest()
+        request.requestedScopes = [.fullName, .email]
+        
+        // Configurar el controlador de autorización
+        let authorizationController = ASAuthorizationController(authorizationRequests: [request])
+        
+        // Crear y asignar el delegado
+        let delegate = AppleSignInDelegate(viewController: viewController, completion: completion)
+        authorizationController.delegate = delegate
+        authorizationController.presentationContextProvider = delegate
+        
+        // Mantener una referencia fuerte al delegado
+        objc_setAssociatedObject(viewController, &AssociatedKeys.delegateKey, delegate, .OBJC_ASSOCIATION_RETAIN)
+        
+        // Iniciar el proceso de autenticación
+        authorizationController.performRequests()
+    }
+
+    // Claves para objc_setAssociatedObject
+    private struct AssociatedKeys {
+        static var delegateKey = "AppleSignInDelegateKey"
+    }
+
+    // Clase delegada para manejar la respuesta de Sign in with Apple
+    private class AppleSignInDelegate: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+        
+        weak var viewController: UIViewController?
+        var completion: (Result<ASAuthorizationAppleIDCredential, Error>) -> Void
+        
+        init(viewController: UIViewController, completion: @escaping (Result<ASAuthorizationAppleIDCredential, Error>) -> Void) {
+            self.viewController = viewController
+            self.completion = completion
+            super.init()
+        }
+        
+        // ASAuthorizationControllerDelegate
+        func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+            if let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential {
+                // Éxito - devolvemos las credenciales
+                completion(.success(appleIDCredential))
+            } else {
+                // No se recibió un credential de tipo ASAuthorizationAppleIDCredential
+                completion(.failure(NSError(domain: "com.appleSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "No se recibió un credential válido"])))
+            }
+        }
+        
+        func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+            // Error en el proceso de autenticación
+            completion(.failure(error))
+        }
+        
+        // ASAuthorizationControllerPresentationContextProviding
+        func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+            return viewController!.view.window!
         }
     }
 }
