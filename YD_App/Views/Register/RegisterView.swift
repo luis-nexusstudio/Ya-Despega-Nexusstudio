@@ -7,9 +7,16 @@
 
 import SwiftUI
 
+enum RegisterState {
+    case idle
+    case loading
+    case success
+    case error
+}
+
 struct RegisterView: View {
     @StateObject var viewModel = RegisterViewModel()
-    var onRegisterSuccess: () -> Void = {}  // Por defecto, hace nada
+    var onRegisterSuccess: () -> Void = {}
 
     @State private var nombres = ""
     @State private var apellidoPaterno = ""
@@ -18,14 +25,13 @@ struct RegisterView: View {
     @State private var email = ""
     @State private var password = ""
 
-    @State private var isLoading = false
-    @State private var registrationSuccess = false
+    @State private var registerState: RegisterState = .idle
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             Color(.systemGroupedBackground).ignoresSafeArea()
 
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 28) {
                     Text("Crea tu cuenta")
                         .font(.title.bold())
@@ -52,23 +58,14 @@ struct RegisterView: View {
                                 .cornerRadius(14)
                                 .shadow(radius: 5)
                         }
-
-                        if isLoading {
-                            ProgressView().padding(.top, 6)
-                        }
+                        .disabled(registerState == .loading)
+                        .opacity(registerState == .loading ? 0.6 : 1.0)
 
                         if let error = viewModel.errorMessage {
                             Text(error)
                                 .foregroundColor(.red)
                                 .font(.footnote)
                                 .multilineTextAlignment(.center)
-                                .padding(.top, 4)
-                        }
-
-                        if registrationSuccess {
-                            Text("¡Registro exitoso!")
-                                .foregroundColor(.green)
-                                .font(.footnote)
                                 .padding(.top, 4)
                         }
                     }
@@ -80,12 +77,15 @@ struct RegisterView: View {
                 }
                 .padding(.bottom, 40)
             }
+
+            if registerState != .idle {
+                RegisterFeedbackOverlay(state: registerState)
+            }
         }
     }
 
     func register() {
-        isLoading = true
-        registrationSuccess = false
+        registerState = .loading
         viewModel.errorMessage = nil
 
         let newUser = UserModel(
@@ -98,10 +98,17 @@ struct RegisterView: View {
         )
 
         viewModel.registerUser(email: email, password: password, userData: newUser) { success in
-            isLoading = false
-            registrationSuccess = success
             if success {
-                onRegisterSuccess()
+                registerState = .success
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    onRegisterSuccess()
+                    registerState = .idle
+                }
+            } else {
+                registerState = .error
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    registerState = .idle
+                }
             }
         }
     }
@@ -150,11 +157,106 @@ struct ModernSecureField: View {
     }
 }
 
-// MARK: Vista previa con un ViewModel inyectado
-struct RegisterView_Previews: PreviewProvider {
-    static var previews: some View {
-        RegisterView()
-        .previewDevice("iPhone 15 Pro")
+struct RegisterFeedbackOverlay: View {
+    var state: RegisterState
+
+    @State private var showLogo = false
+    @State private var shimmerOffset: CGFloat = 250
+
+    var body: some View {
+        ZStack {
+            if state == .loading {
+                Color.white.opacity(0.9)
+                    .ignoresSafeArea()
+                    .onAppear {
+                        withAnimation(.easeInOut(duration: 1)) {
+                            showLogo = true
+                        }
+                    }
+
+                VStack(spacing: 20) {
+                    if showLogo {
+                        ZStack {
+                            Image("YaDespegaLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 200, height: 200)
+                                .opacity(0)
+
+                            Image("YaDespegaLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 200, height: 200)
+                                .mask(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            Color.black.opacity(0.0),
+                                            Color.black.opacity(1.0),
+                                            Color.black.opacity(0.0)
+                                        ]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                    .rotationEffect(.degrees(30))
+                                    .offset(x: shimmerOffset)
+                                )
+                                .onAppear {
+                                    shimmerOffset = -250
+                                    withAnimation(Animation.linear(duration: 2).repeatForever(autoreverses: false)) {
+                                        shimmerOffset = 250
+                                    }
+                                }
+                        }
+
+                        Text("Registrando usuario...")
+                            .foregroundColor(.black)
+                            .font(.headline)
+                            .transition(.opacity)
+                            .animation(.easeIn(duration: 1), value: showLogo)
+                    }
+                }
+            }
+
+            if state == .success {
+                Color.white.ignoresSafeArea()
+
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .resizable()
+                        .frame(width: 80, height: 80)
+                        .foregroundColor(.green)
+
+                    Text("¡Registro exitoso!")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                }
+                .transition(.opacity)
+                .animation(.easeInOut, value: state)
+            }
+
+            if state == .error {
+                Color.white.ignoresSafeArea()
+
+                VStack(spacing: 16) {
+                    Image(systemName: "xmark.octagon.fill")
+                        .resizable()
+                        .frame(width: 80, height: 80)
+                        .foregroundColor(.red)
+
+                    Text("Ocurrió un error")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                }
+                .transition(.opacity)
+                .animation(.easeInOut, value: state)
+            }
+        }
     }
 }
 
+struct RegisterView_Previews: PreviewProvider {
+    static var previews: some View {
+        RegisterView()
+            .previewDevice("iPhone 15 Pro")
+    }
+}

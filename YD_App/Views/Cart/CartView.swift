@@ -12,10 +12,15 @@ struct CartView: View {
     
     // Filtra solo los tipos de boletos con cantidad > 0
     var ticketSections: [(type: String, binding: Binding<Int>)] {
-        [
-            ("GENERAL", $cartViewModel.generalTicketCount),
-            ("VIP", $cartViewModel.vipTicketCount)
-        ]
+        guard let details = cartViewModel.eventDetails else { return [] }
+
+        return details.tickets.compactMap { ticket in
+            let binding = Binding(
+                get: { cartViewModel.ticketCounts[ticket.id] ?? 0 },
+                set: { cartViewModel.ticketCounts[ticket.id] = $0 }
+            )
+            return (ticket.descripcion.uppercased(), binding)
+        }
     }
     
     var body: some View {
@@ -36,8 +41,8 @@ struct CartView: View {
                                     ? Image(systemName: "person.fill")
                                     : Image(systemName: "star.fill"),
                                 title: "YA DESPEGA - \(section.type)",
-                                date: cartViewModel.eventDetails.dateEvent,
-                                location: cartViewModel.eventDetails.location,
+                                date: cartViewModel.eventDetails?.fecha_inicio.date.formatted(date: .long, time: .omitted) ?? "",
+                                location: cartViewModel.eventDetails?.ubicacion ?? "",
                                 count: section.binding
                             )
                         }
@@ -147,26 +152,28 @@ struct DetailsView: View {
     let cartViewModel: CartViewModel
 
     var body: some View {
-        // Descripción del evento
-        Text(cartViewModel.eventDetails.details)
-            .font(.subheadline)
-            .foregroundColor(.gray)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        
-        // Términos y condiciones
-        if !cartViewModel.eventDetails.terms.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(cartViewModel.eventDetails.terms, id: \.self) { term in
-                    HStack(alignment: .top, spacing: 5) {
-                        Text("•")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                        Text(term)
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+        if let details = cartViewModel.eventDetails {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(details.detalles)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if !details.terminos.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(details.terminos, id: \.self) { term in
+                            HStack(alignment: .top, spacing: 5) {
+                                Text("•")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                Text(term)
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                        }
                     }
-                    .padding(.horizontal)
                 }
             }
         }
@@ -177,7 +184,8 @@ struct OrderSummaryView: View {
     @EnvironmentObject var cartViewModel: CartViewModel
     @State private var isExpanded: Bool = true
     @Namespace private var animationNamespace
-    
+    @State private var checkoutURL: URL?
+
     var body: some View {
         ScrollViewReader { scrollProxy in
             VStack(spacing: 0) {
@@ -260,16 +268,21 @@ struct OrderSummaryView: View {
                         
                         Spacer()
                         
-                        Button(action: {
-                            // Acción de pago
-                        }) {
-                            Text("Pagar ahora")
-                                .font(.headline)
-                                .frame(width: 150, height: 50)
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .clipShape(Capsule())
+                        Button("Pagar ahora") {
+                            cartViewModel.fetchCheckoutURL { url in
+                                if let url = url {
+                                    checkoutURL = url
+                                } else {
+                                    // Aquí podrías mostrar una alerta de fallo
+                                }
+                            }
                         }
+                        .font(.headline)
+                        .frame(width: 150, height: 50)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                        .padding()
                     }
                     .padding()
                     .id("summaryBottom") // Identificador para el scroll
@@ -287,11 +300,19 @@ struct OrderSummaryView: View {
                 .frame(maxWidth: .infinity)
             }
             .edgesIgnoringSafeArea(.bottom)
-            
+        }
+        // El sheet solo aparece cuando checkoutURL no es nil
+        .sheet(item: $checkoutURL) { url in
+            SafariView(url: url)
+                .ignoresSafeArea()
         }
     }
 }
 
+// MARK: - Hacer URL Identifiable para usar .sheet(item:)
+extension URL: Identifiable {
+    public var id: String { absoluteString }
+}
 // MARK: Vista para carrito vacío
 struct EmptyCartView: View {
     var body: some View {
@@ -316,14 +337,5 @@ struct EmptyCartView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
         .ignoresSafeArea()
-    }
-}
-
-// MARK: Vista previa con un ViewModel inyectado
-struct CartView_Previews: PreviewProvider {
-    static var previews: some View {
-        CartView()
-            .environmentObject(CartViewModel())
-            .previewDevice("iPhone 16 Pro")
     }
 }

@@ -15,3 +15,4 @@ struct UserModel: Codable {
     var rolId: String
     var fechaRegistro: Date
 }
+

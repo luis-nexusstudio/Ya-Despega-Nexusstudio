@@ -182,10 +182,7 @@ struct TicketPopupView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var cartViewModel: CartViewModel
     @Binding var selectedTab: Int
-    @State private var ticketSelection: [TicketType: Int] = [
-        .general: 0,
-        .vip: 0
-    ]
+    @State private var ticketSelection: [String: Int] = [:]
     
     var totalTickets: Int {
         ticketSelection.values.reduce(0, +)
@@ -204,31 +201,28 @@ struct TicketPopupView: View {
             Divider()
             
             // Lista de boletos
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 20) {
-                    TicketOptionView(
-                        type: "General",
-                        price: "$500",
-                        benefits: ["Acceso a todas las conferencias", "Material digital"],
-                        imageName: "ticket-general",
-                        count: Binding(
-                            get: { ticketSelection[.general] ?? 0 },
-                            set: { ticketSelection[.general] = $0 }
-                        )
-                    )
-                    
-                    TicketOptionView(
-                        type: "VIP",
-                        price: "$600",
-                        benefits: ["Meet & greet con conferencistas", "Acceso preferencial", "Todo lo del general"],
-                        imageName: "ticket-vip",
-                        count: Binding(
-                            get: { ticketSelection[.vip] ?? 0 },
-                            set: { ticketSelection[.vip] = $0 }
-                        )
-                    )
+            if let details = cartViewModel.eventDetails {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        ForEach(details.tickets) { ticket in
+                            TicketOptionView(
+                                type: ticket.descripcion,
+                                price: ticket.precio.formatted(.currency(code: "MXN")),
+                                benefits: ticket.beneficios ?? [],
+                                imageName: "ticket-general",
+                                count: Binding(
+                                    get: { ticketSelection[ticket.id] ?? 0 },
+                                    set: { ticketSelection[ticket.id] = $0 }
+                                )
+                            )
+                        }
+                    }
+                    .padding(.bottom, 20)
                 }
-                .padding(.bottom, 20)
+            } else {
+                Text("Cargando boletos...")
+                    .foregroundColor(.gray)
+                    .padding()
             }
             
             // Botón de carrito
@@ -254,12 +248,11 @@ struct TicketPopupView: View {
     }
     
     private func addToCart() {
-        for (type, count) in ticketSelection {
+        for (ticketId, count) in ticketSelection {
             if count > 0 {
-                cartViewModel.addTickets(type: type, count: count)
+                cartViewModel.ticketCounts[ticketId, default: 0] += count
             }
         }
-        
         selectedTab = 1
         dismiss()
     }
@@ -349,15 +342,5 @@ struct ScaleButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .animation(.easeOut(duration: 0.2), value: configuration.isPressed)
-    }
-}
-
-// MARK: - Preview
-struct HomeView_Previews: PreviewProvider {
-    static var previews: some View {
-        HomeView(selectedTab: .constant(0))
-                .environmentObject(CartViewModel()) // Agrega esta línea
-                .preferredColorScheme(.light) // Opcional para vista en modo claro
-            
     }
 }

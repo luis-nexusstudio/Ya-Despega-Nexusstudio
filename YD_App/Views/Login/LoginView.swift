@@ -19,70 +19,72 @@ struct LoginView: View {
     @State private var loginError: String?
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 20) {
-                Spacer(minLength: 60)
+        ZStack(alignment: .bottom) {
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 20) {
+                    Spacer(minLength: 60)
 
-                LogoHeader()
+                    LogoHeader()
 
-                CredentialFields(email: $email, password: $password)
+                    CredentialFields(email: $email, password: $password)
 
-                ForgotPasswordButton()
+                    ForgotPasswordButton()
 
-                LoginButton {
-                    isLoading = true
-                    loginError = nil
-                    authViewModel.signInWithEmail(email: email, password: password) { success in
-                        isLoading = false
-                        if success {
-                            onLoginSuccess()
-                        } else {
-                            loginError = "Correo o contraseña incorrectos"
-                        }
-                    }
-                }
-
-                if isLoading {
-                    ProgressView()
-                }
-
-                if let error = loginError {
-                    Text(error)
-                        .foregroundColor(.red)
-                        .font(.footnote)
-                }
-
-                DividerWithText(text: "O")
-
-                SocialLoginButtons(
-                    onGoogleLogin: {
-                        if let rootVC = UIApplication.shared.windows.first?.rootViewController {
-                            authViewModel.signInWithGoogle(presenting: rootVC) { success in
-                                if success {
-                                    onLoginSuccess()
-                                }
+                    LoginButton {
+                        isLoading = true
+                        loginError = nil
+                        authViewModel.signInWithEmail(email: email, password: password) { success in
+                            isLoading = false
+                            if success {
+                                onLoginSuccess()
+                            } else {
+                                loginError = "Correo o contraseña incorrectos"
                             }
                         }
-                    },
-                    onAppleLogin: {
-                        // Aquí irá la lógica del login con Apple
-                    }
-                )
-
-                Spacer(minLength: 40)
-
-                RegisterButton(showRegister: $showRegisterView)
-                    .sheet(isPresented: $showRegisterView) {
-                        RegisterView(onRegisterSuccess: {
-                            showRegisterView = false
-                        })
                     }
 
-                Spacer(minLength: 20)
+                    if isLoading {
+                        ProgressView()
+                    }
+
+                    if let error = loginError {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.footnote)
+                    }
+
+                    DividerWithText(text: "O")
+
+                    SocialLoginButtons(
+                        onGoogleLogin: {
+                            if let rootVC = UIApplication.shared.windows.first?.rootViewController {
+                                authViewModel.signInWithGoogle(presenting: rootVC) { success in
+                                    if success {
+                                        onLoginSuccess()
+                                    }
+                                }
+                            }
+                        },
+                        onAppleLogin: {
+                            // Aquí irá la lógica del login con Apple
+                        }
+                    )
+
+                    Spacer(minLength: 40)
+
+                    RegisterButton(showRegister: $showRegisterView)
+                        .sheet(isPresented: $showRegisterView) {
+                            RegisterView(onRegisterSuccess: {
+                                showRegisterView = false
+                            })
+                        }
+
+                    Spacer(minLength: 20)
+                }
+                .padding()
             }
-            .padding()
+            .ignoresSafeArea(.keyboard)
         }
-        .ignoresSafeArea(.keyboard)
     }
 }
 
@@ -90,7 +92,7 @@ struct LoginView: View {
 struct LogoHeader: View {
     var body: some View {
         VStack(spacing: 10) {
-            Image("appLogo")
+            Image("YaDespegaLogo")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 100, height: 100)

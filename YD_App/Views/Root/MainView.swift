@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct MainView: View {
-    @StateObject private var cartViewModel = CartViewModel()
+    @StateObject private var cartViewModel = CartViewModel(eventId: "8avevXHoe4aXoMQEDOic")
     @State private var selectedTab = 0
 
     var body: some View {
@@ -28,20 +28,18 @@ struct MainView: View {
 
             MyTicketsView() 
                 .tabItem {
-                    Label("Mis Tickets", systemImage: "ticket.fill")
+                    Label("Tickets", systemImage: "ticket.fill")
+                }
+                .tag(2)
+            
+            ProfileView()
+                .tabItem {
+                    Label("Perfil", systemImage: "person.fill")
                 }
                 .tag(2)
 
             
         }
         .environmentObject(cartViewModel)
-    }
-}
-
-struct MainView_Previews: PreviewProvider {
-    static var previews: some View {
-        MainView()
-            .environmentObject(CartViewModel())  // Agrega el EnvironmentObject
-            .previewDevice( "IPhone 16 Pro")
     }
 }

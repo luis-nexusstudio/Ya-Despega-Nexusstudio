@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7B1FDAAA2DCE721800FBEF5D /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B1FDAA92DCE721800FBEF5D /* SafariServices.framework */; };
 		BC38C0412DB8869100AF808E /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BC38C0402DB8869100AF808E /* FirebaseAuth */; };
 		BC38C0432DB8869100AF808E /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = BC38C0422DB8869100AF808E /* FirebaseCore */; };
 		BC38C0452DB8869100AF808E /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BC38C0442DB8869100AF808E /* FirebaseFirestore */; };
@@ -34,6 +35,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		7B1FDAA92DCE721800FBEF5D /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SafariServices.framework; path = System/Library/Frameworks/SafariServices.framework; sourceTree = SDKROOT; };
 		BC798E3F2D8CAE9000B99082 /* YD_App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YD_App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC798E4F2D8CAE9100B99082 /* YD_AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YD_AppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC798E592D8CAE9100B99082 /* YD_AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YD_AppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -62,6 +64,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7B1FDAAA2DCE721800FBEF5D /* SafariServices.framework in Frameworks */,
 				BC38C0472DB8869100AF808E /* FirebaseMessaging in Frameworks */,
 				BC38C0432DB8869100AF808E /* FirebaseCore in Frameworks */,
 				BC38C0532DB889D300AF808E /* GoogleSignInSwift in Frameworks */,
@@ -92,6 +95,7 @@
 		BC38C03F2DB8869100AF808E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				7B1FDAA92DCE721800FBEF5D /* SafariServices.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
