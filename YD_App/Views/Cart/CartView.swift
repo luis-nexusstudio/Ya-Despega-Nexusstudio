@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CartView: View {
     @EnvironmentObject var cartViewModel: CartViewModel
+    @Binding var selectedTab: Int
     
     // Filtra solo los tipos de boletos con cantidad > 0
     var ticketSections: [(type: String, binding: Binding<Int>)] {
@@ -49,8 +50,7 @@ struct CartView: View {
                         
                         DetailsView(cartViewModel: cartViewModel)
                         
-                        OrderSummaryView()
-                        
+                        OrderSummaryView(selectedTab: $selectedTab)
                         
                     }
                     .padding(.horizontal, 24)
@@ -180,25 +180,26 @@ struct DetailsView: View {
     }
 }
 
+// OrderSummaryView.swift
+import SwiftUI
+
 struct OrderSummaryView: View {
     @EnvironmentObject var cartViewModel: CartViewModel
+    @EnvironmentObject var paymentCoordinator: PaymentCoordinator
     @State private var isExpanded: Bool = true
-    @Namespace private var animationNamespace
     @State private var checkoutURL: URL?
+    @Binding var selectedTab: Int
 
     var body: some View {
         ScrollViewReader { scrollProxy in
             VStack(spacing: 0) {
                 Spacer()
-                
-                // Resumen fijo en la parte inferior
+
                 VStack(spacing: 0) {
-                    // Encabezado desplegable
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             isExpanded.toggle()
                         }
-                        // Ajustar el scroll después de la animación
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                             withAnimation {
                                 scrollProxy.scrollTo("summaryBottom", anchor: .bottom)
@@ -209,9 +210,9 @@ struct OrderSummaryView: View {
                             Text("Resumen del pedido")
                                 .font(.headline)
                                 .foregroundColor(.primary)
-                            
+
                             Spacer()
-                            
+
                             Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
                                 .foregroundColor(.secondary)
                         }
@@ -219,8 +220,7 @@ struct OrderSummaryView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(PlainButtonStyle())
-                    
-                    // Contenido desplegable
+
                     if isExpanded {
                         VStack(spacing: 20) {
                             HStack {
@@ -230,7 +230,7 @@ struct OrderSummaryView: View {
                                 Text("\(cartViewModel.totalTickets)")
                                     .bold()
                             }
-                            
+
                             HStack {
                                 Text("Subtotal")
                                     .foregroundColor(.secondary)
@@ -238,7 +238,7 @@ struct OrderSummaryView: View {
                                 Text(cartViewModel.subTotalPrice.formatted(.currency(code: "MXN")))
                                     .bold()
                             }
-                            
+
                             HStack {
                                 Text("Cuota de servicio (4%)")
                                     .foregroundColor(.secondary)
@@ -251,12 +251,10 @@ struct OrderSummaryView: View {
                         .padding(.bottom, 15)
                         .transition(.opacity)
                     }
-                    
-                    // Línea divisoria
+
                     Divider()
                         .padding(.horizontal, isExpanded ? 0 : 16)
-                    
-                    // Total y botón de pago
+
                     HStack {
                         VStack(alignment: .leading) {
                             Text("Total")
@@ -265,27 +263,38 @@ struct OrderSummaryView: View {
                             Text(cartViewModel.totalPrice.formatted(.currency(code: "MXN")))
                                 .font(.system(size: 18, weight: .bold))
                         }
-                        
+
                         Spacer()
-                        
-                        Button("Pagar ahora") {
+
+                        Button(action: {
                             cartViewModel.fetchCheckoutURL { url in
                                 if let url = url {
                                     checkoutURL = url
+                                    print("OrderSummaryView: opening checkout URL -> \(url)")
                                 } else {
-                                    // Aquí podrías mostrar una alerta de fallo
+                                    print("OrderSummaryView: failed to get checkout URL")
                                 }
                             }
+                        }) {
+                            HStack(spacing: 8) {
+                                Image("mercado_pago_icon") // asegúrate de tenerlo en tus Assets
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(height: 50)
+                                
+                                Text("Pagar ahora")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(width: 200, height: 50)
+                            .background(Color(red: 0.0, green: 0.62, blue: 0.89)) // #009ee3
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
                         }
-                        .font(.headline)
-                        .frame(width: 150, height: 50)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .clipShape(Capsule())
                         .padding()
                     }
                     .padding()
-                    .id("summaryBottom") // Identificador para el scroll
+                    .id("summaryBottom")
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 16)
@@ -298,21 +307,28 @@ struct OrderSummaryView: View {
                 )
                 .padding(.bottom, 10)
                 .frame(maxWidth: .infinity)
+
             }
             .edgesIgnoringSafeArea(.bottom)
         }
-        // El sheet solo aparece cuando checkoutURL no es nil
-        .sheet(item: $checkoutURL) { url in
+        .fullScreenCover(item: $checkoutURL) { url in
             SafariView(url: url)
                 .ignoresSafeArea()
+        }
+        .onChange(of: paymentCoordinator.redirigirATab) {
+            if let tab = paymentCoordinator.redirigirATab {
+                selectedTab = tab
+                paymentCoordinator.resetEstadoPago()
+            }
         }
     }
 }
 
-// MARK: - Hacer URL Identifiable para usar .sheet(item:)
 extension URL: Identifiable {
     public var id: String { absoluteString }
 }
+
+
 // MARK: Vista para carrito vacío
 struct EmptyCartView: View {
     var body: some View {

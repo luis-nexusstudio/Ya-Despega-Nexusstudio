@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		7B1FDAAA2DCE721800FBEF5D /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B1FDAA92DCE721800FBEF5D /* SafariServices.framework */; };
+		7B96A4372DD39F3200F4AA04 /* CoreMethods in Frameworks */ = {isa = PBXBuildFile; productRef = 7B96A4362DD39F3200F4AA04 /* CoreMethods */; };
 		BC38C0412DB8869100AF808E /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BC38C0402DB8869100AF808E /* FirebaseAuth */; };
 		BC38C0432DB8869100AF808E /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = BC38C0422DB8869100AF808E /* FirebaseCore */; };
 		BC38C0452DB8869100AF808E /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BC38C0442DB8869100AF808E /* FirebaseFirestore */; };
@@ -46,6 +47,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = YD_App;
 			sourceTree = "<group>";
+			usesTabs = 0;
 		};
 		BC798E522D8CAE9100B99082 /* YD_AppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -71,6 +73,7 @@
 				BC38C0412DB8869100AF808E /* FirebaseAuth in Frameworks */,
 				BC38C0492DB8869100AF808E /* FirebaseStorage in Frameworks */,
 				BC38C0452DB8869100AF808E /* FirebaseFirestore in Frameworks */,
+				7B96A4372DD39F3200F4AA04 /* CoreMethods in Frameworks */,
 				BC38C0512DB889D300AF808E /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -148,6 +151,7 @@
 				BC38C0482DB8869100AF808E /* FirebaseStorage */,
 				BC38C0502DB889D300AF808E /* GoogleSignIn */,
 				BC38C0522DB889D300AF808E /* GoogleSignInSwift */,
+				7B96A4362DD39F3200F4AA04 /* CoreMethods */,
 			);
 			productName = YD_App;
 			productReference = BC798E3F2D8CAE9000B99082 /* YD_App.app */;
@@ -234,6 +238,7 @@
 			packageReferences = (
 				BC38C03E2DB8842B00AF808E /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				BC38C04F2DB889C700AF808E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				7B96A4352DD39CD100F4AA04 /* XCRemoteSwiftPackageReference "sdk-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BC798E402D8CAE9000B99082 /* Products */;
@@ -602,6 +607,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		7B96A4352DD39CD100F4AA04 /* XCRemoteSwiftPackageReference "sdk-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mercadopago/sdk-ios.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		BC38C03E2DB8842B00AF808E /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -621,6 +634,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		7B96A4362DD39F3200F4AA04 /* CoreMethods */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7B96A4352DD39CD100F4AA04 /* XCRemoteSwiftPackageReference "sdk-ios" */;
+			productName = CoreMethods;
+		};
 		BC38C0402DB8869100AF808E /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BC38C03E2DB8842B00AF808E /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

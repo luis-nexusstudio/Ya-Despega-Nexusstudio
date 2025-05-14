@@ -19,8 +19,7 @@ struct MainView: View {
                 }
                 .tag(0)
 
-            CartView()  // Pantalla Carrito de Compras
-                .tabItem {
+            CartView(selectedTab: $selectedTab)                .tabItem {
                     Label("Carrito", systemImage: cartViewModel.totalTickets > 0 ? "cart.fill.badge.plus" : "cart")
                 }
                 .tag(1)

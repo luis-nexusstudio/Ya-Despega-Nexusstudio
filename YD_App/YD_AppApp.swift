@@ -10,16 +10,18 @@ import FirebaseCore
 
 @main
 struct YD_AppApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appCoordinator = AppCoordinator()
+    @StateObject private var paymentCoordinator = PaymentCoordinator()
 
     init() {
-        print("CLIENT ID:", FirebaseApp.app()?.options.clientID ?? "NO CLIENT ID")
         FirebaseApp.configure()
-    
     }
+
     var body: some Scene {
         WindowGroup {
             appCoordinator.currentView
+                .environmentObject(paymentCoordinator)
         }
     }
 }

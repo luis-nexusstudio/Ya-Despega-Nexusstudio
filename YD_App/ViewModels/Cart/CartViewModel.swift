@@ -8,10 +8,18 @@
 import SwiftUI
 import FirebaseAuth
 
+enum EstadoPago: String {
+    case exitoso
+    case pendiente
+    case fallido
+    case ninguno
+}
+
 class CartViewModel: ObservableObject {
 
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var estadoPago: EstadoPago = .ninguno
 
     // Almacena detalles del evento y reinicia contadores al cambiar
     @Published var eventDetails: EventDetails? {
@@ -140,53 +148,15 @@ class CartViewModel: ObservableObject {
     }
 
     func fetchCheckoutURL(completion: @escaping (URL?) -> Void) {
-        Auth.auth().currentUser?.getIDToken { [weak self] idToken, error in
-            guard let self = self,
-                  let idToken = idToken,
-                  error == nil,
-                  let details = self.eventDetails
-            else {
-                DispatchQueue.main.async { completion(nil) }
-                return
+        guard let details = eventDetails else {
+            completion(nil)
+            return
+        }
+
+        CheckoutService.createCheckoutURL(eventDetails: details, ticketCounts: ticketCounts) { url in
+            DispatchQueue.main.async {
+                completion(url)
             }
-
-            // Ahora uso self.makeItemsPayload() dentro de la clausura
-            let itemsPayload = self.makeItemsPayload()
-            guard !itemsPayload.isEmpty else {
-                DispatchQueue.main.async { completion(nil) }
-                return
-            }
-
-            let payload: [String: Any] = [
-                "items":      itemsPayload,
-                "payerEmail": Auth.auth().currentUser?.email ?? ""
-            ]
-
-            let url = self.baseURL.appendingPathComponent("create-preference")
-            guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
-                DispatchQueue.main.async { completion(nil) }
-                return
-            }
-
-            var req = URLRequest(url: url)
-            req.httpMethod = "POST"
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
-            req.httpBody = body
-
-            URLSession.shared.dataTask(with: req) { [weak self] data, resp, err in
-                guard let self = self else { return }
-                // chequeo de código HTTP…
-                guard let data = data,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let prefId = json["preferenceId"] as? String
-                else {
-                    DispatchQueue.main.async { completion(nil) }
-                    return
-                }
-                let redirectURL = URL(string: "https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=\(prefId)")
-                DispatchQueue.main.async { completion(redirectURL) }
-            }.resume()
         }
     }
 }

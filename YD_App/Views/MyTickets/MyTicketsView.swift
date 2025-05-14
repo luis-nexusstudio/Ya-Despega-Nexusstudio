@@ -8,15 +8,32 @@
 import SwiftUI
 
 struct MyTicketsView: View {
-
+    @EnvironmentObject var paymentCoordinator: PaymentCoordinator
+    
     var body: some View {
         VStack {
-            Text("Bienvenido a mis boletos YD")
-                .font(.title)
-                .padding()
+            switch paymentCoordinator.estadoPago {
+            case .exitoso:
+                Text("✅ Pago exitoso")
+                    .foregroundColor(.green)
+            case .pendiente:
+                Text("⏳ Pago pendiente de aprobación")
+                    .foregroundColor(.orange)
+            case .fallido:
+                Text("❌ Pago rechazado o fallido")
+                    .foregroundColor(.red)
+            case .ninguno:
+                EmptyView()
+            }
 
-            
+            // Aquí irían tus boletos u otra info
+            Text("Lista de boletos...")
         }
-        .navigationBarTitle("Boletos YD")
+        .onAppear {
+            // Resetea el estado después de mostrarlo
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                paymentCoordinator.estadoPago = .ninguno
+            }
+        }
     }
 }
