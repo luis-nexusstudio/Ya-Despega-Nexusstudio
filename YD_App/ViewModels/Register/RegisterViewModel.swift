@@ -56,7 +56,7 @@ class RegisterViewModel: ObservableObject {
                     "fecha_registro": Timestamp(date: userData.fechaRegistro)
                 ]
 
-                db.collection("users").document(uid).setData(userDict) { error in
+                db.collection("usuarios").document(uid).setData(userDict) { error in
                     if let error = error {
                         self.errorMessage = error.localizedDescription
                         completion(false)

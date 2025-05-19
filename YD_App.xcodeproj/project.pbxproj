@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		7B1FDAAA2DCE721800FBEF5D /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B1FDAA92DCE721800FBEF5D /* SafariServices.framework */; };
-		7B96A4372DD39F3200F4AA04 /* CoreMethods in Frameworks */ = {isa = PBXBuildFile; productRef = 7B96A4362DD39F3200F4AA04 /* CoreMethods */; };
 		BC38C0412DB8869100AF808E /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BC38C0402DB8869100AF808E /* FirebaseAuth */; };
 		BC38C0432DB8869100AF808E /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = BC38C0422DB8869100AF808E /* FirebaseCore */; };
 		BC38C0452DB8869100AF808E /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BC38C0442DB8869100AF808E /* FirebaseFirestore */; };
@@ -36,7 +34,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		7B1FDAA92DCE721800FBEF5D /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SafariServices.framework; path = System/Library/Frameworks/SafariServices.framework; sourceTree = SDKROOT; };
 		BC798E3F2D8CAE9000B99082 /* YD_App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YD_App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC798E4F2D8CAE9100B99082 /* YD_AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YD_AppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC798E592D8CAE9100B99082 /* YD_AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YD_AppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -47,7 +44,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = YD_App;
 			sourceTree = "<group>";
-			usesTabs = 0;
 		};
 		BC798E522D8CAE9100B99082 /* YD_AppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -66,14 +62,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7B1FDAAA2DCE721800FBEF5D /* SafariServices.framework in Frameworks */,
 				BC38C0472DB8869100AF808E /* FirebaseMessaging in Frameworks */,
 				BC38C0432DB8869100AF808E /* FirebaseCore in Frameworks */,
 				BC38C0532DB889D300AF808E /* GoogleSignInSwift in Frameworks */,
 				BC38C0412DB8869100AF808E /* FirebaseAuth in Frameworks */,
 				BC38C0492DB8869100AF808E /* FirebaseStorage in Frameworks */,
 				BC38C0452DB8869100AF808E /* FirebaseFirestore in Frameworks */,
-				7B96A4372DD39F3200F4AA04 /* CoreMethods in Frameworks */,
 				BC38C0512DB889D300AF808E /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -98,7 +92,6 @@
 		BC38C03F2DB8869100AF808E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				7B1FDAA92DCE721800FBEF5D /* SafariServices.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -151,7 +144,6 @@
 				BC38C0482DB8869100AF808E /* FirebaseStorage */,
 				BC38C0502DB889D300AF808E /* GoogleSignIn */,
 				BC38C0522DB889D300AF808E /* GoogleSignInSwift */,
-				7B96A4362DD39F3200F4AA04 /* CoreMethods */,
 			);
 			productName = YD_App;
 			productReference = BC798E3F2D8CAE9000B99082 /* YD_App.app */;
@@ -238,7 +230,6 @@
 			packageReferences = (
 				BC38C03E2DB8842B00AF808E /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				BC38C04F2DB889C700AF808E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
-				7B96A4352DD39CD100F4AA04 /* XCRemoteSwiftPackageReference "sdk-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BC798E402D8CAE9000B99082 /* Products */;
@@ -371,6 +362,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
+				NEW_SETTING = "";
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -429,6 +421,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				NEW_SETTING = "";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
@@ -440,10 +433,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_ENTITLEMENTS = YD_App/YD_App.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"YD_App/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 22UX33YZ22;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "YD-App-Info.plist";
@@ -471,7 +466,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_ENTITLEMENTS = YD_App/YD_App.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"YD_App/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
@@ -607,14 +604,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		7B96A4352DD39CD100F4AA04 /* XCRemoteSwiftPackageReference "sdk-ios" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/mercadopago/sdk-ios.git";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
 		BC38C03E2DB8842B00AF808E /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -634,11 +623,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		7B96A4362DD39F3200F4AA04 /* CoreMethods */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 7B96A4352DD39CD100F4AA04 /* XCRemoteSwiftPackageReference "sdk-ios" */;
-			productName = CoreMethods;
-		};
 		BC38C0402DB8869100AF808E /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BC38C03E2DB8842B00AF808E /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
