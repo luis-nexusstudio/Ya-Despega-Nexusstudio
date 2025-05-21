@@ -14,7 +14,16 @@
 				<string>com.googleusercontent.apps.810430139912-d94nqn7kn83njpc7us9vqfttslirrev4</string>
 			</array>
 		</dict>
-		<dict/>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.nexusstudio.ydapp</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ydapp</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>
