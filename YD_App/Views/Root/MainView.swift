@@ -8,40 +8,51 @@
 import SwiftUI
 
 struct MainView: View {
-    @StateObject private var cartViewModel = CartViewModel()
+    // 1) Recibe los env–objects, no los creas aquí
+    @EnvironmentObject var cartViewModel: CartViewModel
+    @EnvironmentObject var paymentCoordinator: PaymentCoordinator
+
     @State private var selectedTab = 0
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            HomeView(selectedTab: $selectedTab)
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .tag(0)
+        BackgroundGeneralView {
+            TabView(selection: $selectedTab) {
+                HomeView(selectedTab: $selectedTab)
+                    .tabItem { Label("Inicio", systemImage: "house.fill") }
+                    .tag(0)
 
-            CartView()  // Pantalla Carrito de Compras
-                .tabItem {
-                    Label("Carrito", systemImage: cartViewModel.totalTickets > 0 ? "cart.fill.badge.plus" : "cart")
-                }
-                .tag(1)
-                .badge(cartViewModel.totalTickets > 0 ? cartViewModel.totalTickets : 0)
+                CartView(selectedTab: $selectedTab)
+                    .tabItem {
+                        Label(
+                          "Carrito",
+                          systemImage: cartViewModel.totalTickets > 0
+                            ? "cart.fill.badge.plus"
+                            : "cart"
+                        )
+                    }
+                    .tag(1)
+                    .badge(cartViewModel.totalTickets)
 
-            MyTicketsView() 
-                .tabItem {
-                    Label("Mis Tickets", systemImage: "ticket.fill")
-                }
-                .tag(2)
+                MyTicketsView()
+                    .tabItem { Label("Tickets", systemImage: "ticket.fill") }
+                    .tag(2)
 
-            
+                ProfileView()
+                    .tabItem { Label("Perfil", systemImage: "person.fill") }
+                    .tag(3)
+            }
+            .tint(Color("PrimaryColor"))
+            .background(Color.black.opacity(0.001))
         }
-        .environmentObject(cartViewModel)
     }
 }
 
 struct MainView_Previews: PreviewProvider {
+    @State static var selectedTab = 0
+
     static var previews: some View {
         MainView()
-            .environmentObject(CartViewModel())  // Agrega el EnvironmentObject
-            .previewDevice( "IPhone 16 Pro")
+        .previewDevice("iPhone 15 Pro")
     }
 }
+
