@@ -11,10 +11,8 @@ struct CartView: View {
     @EnvironmentObject var cartViewModel: CartViewModel
     @Binding var selectedTab: Int
     
-    // Filtra solo los tipos de boletos con cantidad > 0
     var ticketSections: [(type: String, binding: Binding<Int>)] {
         guard let details = cartViewModel.eventDetails else { return [] }
-
         return details.tickets.compactMap { ticket in
             let binding = Binding(
                 get: { cartViewModel.ticketCounts[ticket.id] ?? 0 },
@@ -25,60 +23,47 @@ struct CartView: View {
     }
     
     var body: some View {
-        ZStack(alignment: .bottom) {
-            if cartViewModel.totalTickets > 0 {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        
-                        ViewHeader(title: "Resumen de compra")
-                        
-                        Divider()
-                        .background(.black)
-                        
-                        // Sección editable por tipo de boleto
-                        ForEach(ticketSections, id: \.type) { section in
-                            EditableOrderSection(
-                                image: section.type == "GENERAL"
-                                    ? Image(systemName: "person.fill")
-                                    : Image(systemName: "star.fill"),
-                                title: "YA DESPEGA - \(section.type)",
-                                date: cartViewModel.eventDetails?.fecha_inicio.date.formatted(date: .long, time: .omitted) ?? "",
-                                location: cartViewModel.eventDetails?.ubicacion ?? "",
-                                count: section.binding
-                            )
+        BackgroundGeneralView {
+            ZStack(alignment: .bottom) {
+                if cartViewModel.totalTickets > 0 {
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text("Resumen de compra")
+                                .font(.title.bold())
+                                .padding(.bottom, 10)
+                                .foregroundColor(Color("PrimaryColor"))
+                            
+                            Divider()
+                            
+                            ForEach(ticketSections, id: \.type) { section in
+                                EditableOrderSection(
+                                    image: section.type == "GENERAL"
+                                        ? Image(systemName: "person.fill")
+                                        : Image(systemName: "star.fill"),
+                                    title: "YD - \(section.type)",
+                                    date: cartViewModel.eventDetails?.fecha_inicio.date.formatted(date: .long, time: .omitted) ?? "",
+                                    location: cartViewModel.eventDetails?.ubicacion ?? "",
+                                    count: section.binding
+                                )
+                            }
+                            
+                            if let details = cartViewModel.eventDetails {
+                                DetailsView(details: details)
+                            }
+                            
+                            OrderSummaryView(selectedTab: $selectedTab)
                         }
-                        
-                        DetailsView(cartViewModel: cartViewModel)
-                        
-                        OrderSummaryView(selectedTab: $selectedTab)
-                        
+                        .padding(.horizontal, 24)
+                        .padding(.top, 60)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 60)
+                } else {
+                    EmptyCartView()
                 }
-            } else {
-                // Vista vacía
-                EmptyCartView()
             }
         }
     }
 }
 
-// MARK: Encabezado de la vista de carrito
-struct ViewHeader: View {
-    let title: String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.title.bold())
-                .foregroundColor(.primary)
-        }
-        .padding(.bottom, 10)
-    }
-}
-
-// MARK: Sección editable por tipo de boleto
 struct EditableOrderSection: View {
     let image: Image
     let title: String
@@ -90,47 +75,32 @@ struct EditableOrderSection: View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                .shadow(radius: 4)
 
             HStack(alignment: .top, spacing: 15) {
                 image
                     .resizable()
-                    .scaledToFill()
                     .frame(width: 100, height: 100)
-                    .clipped()
                     .cornerRadius(12)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(title)
-                        .font(.headline)
+                    Text(title).font(.headline)
+                    Text(date).font(.subheadline).foregroundColor(.secondary)
+                    Text(location).font(.subheadline).foregroundColor(.secondary)
 
-                    Text(date)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    Text(location)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    // ➖➕ Contador
                     HStack {
-                        Button(action: {
-                            if count > 0 { count -= 1 }
-                        }) {
+                        Button(action: { if count > 0 { count -= 1 } }) {
                             Image(systemName: "minus.circle.fill")
                                 .font(.title2)
                                 .foregroundColor(count > 0 ? .red : .gray)
-                            
                         }
                         .disabled(count == 0)
 
                         Text("\(count)")
-                            .font(.body.monospacedDigit())
                             .frame(minWidth: 30)
+                            .font(.body.monospacedDigit())
 
-                        Button(action: {
-                            count += 1
-                        }) {
+                        Button(action: { count += 1 }) {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
                                 .foregroundColor(.green)
@@ -143,52 +113,35 @@ struct EditableOrderSection: View {
             .padding()
         }
         .frame(height: 200)
-        .frame(maxWidth: .infinity)
     }
 }
 
-// MARK: Terminos y condiciones del evento
 struct DetailsView: View {
-    let cartViewModel: CartViewModel
+    let details: EventDetails
 
     var body: some View {
-        if let details = cartViewModel.eventDetails {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(details.detalles)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(details.detalles)
+                .font(.subheadline)
+                .foregroundColor(.gray)
 
-                if !details.terminos.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(details.terminos, id: \.self) { term in
-                            HStack(alignment: .top, spacing: 5) {
-                                Text("•")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                                Text(term)
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
+            ForEach(details.terminos, id: \.self) { term in
+                HStack(alignment: .top, spacing: 5) {
+                    Text("•").foregroundColor(.gray)
+                    Text(term).foregroundColor(.gray)
                 }
             }
         }
     }
 }
 
-// OrderSummaryView.swift
-import SwiftUI
-
 struct OrderSummaryView: View {
     @EnvironmentObject var cartViewModel: CartViewModel
     @EnvironmentObject var paymentCoordinator: PaymentCoordinator
-    @State private var isExpanded: Bool = true
-    @State private var checkoutURL: URL?
+    @State private var isExpanded = true
     @Binding var selectedTab: Int
+    @State private var showRedirecting = false
+    @State private var safariURL: URL?
 
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -209,42 +162,34 @@ struct OrderSummaryView: View {
                         HStack {
                             Text("Resumen del pedido")
                                 .font(.headline)
-                                .foregroundColor(.primary)
-
                             Spacer()
-
                             Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
                                 .foregroundColor(.secondary)
                         }
                         .padding()
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(PlainButtonStyle())
 
                     if isExpanded {
                         VStack(spacing: 20) {
                             HStack {
-                                Text("Boletos")
-                                    .foregroundColor(.secondary)
+                                Text("Boletos").foregroundColor(.secondary)
                                 Spacer()
-                                Text("\(cartViewModel.totalTickets)")
-                                    .bold()
+                                Text("\(cartViewModel.totalTickets)").bold()
                             }
-
                             HStack {
-                                Text("Subtotal")
-                                    .foregroundColor(.secondary)
+                                Text("Subtotal").foregroundColor(.secondary)
                                 Spacer()
                                 Text(cartViewModel.subTotalPrice.formatted(.currency(code: "MXN")))
                                     .bold()
+                                    .foregroundColor(Color("MoneyGreen"))
                             }
-
                             HStack {
-                                Text("Cuota de servicio (4%)")
-                                    .foregroundColor(.secondary)
+                                Text("Cuota de servicio (4%)").foregroundColor(.secondary)
                                 Spacer()
                                 Text(cartViewModel.serviceFeeAmount.formatted(.currency(code: "MXN")))
                                     .bold()
+                                    .foregroundColor(Color("MoneyGreen"))
                             }
                         }
                         .padding(.horizontal)
@@ -257,41 +202,40 @@ struct OrderSummaryView: View {
 
                     HStack {
                         VStack(alignment: .leading) {
-                            Text("Total")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                            Text("Total").font(.subheadline).foregroundColor(.secondary)
                             Text(cartViewModel.totalPrice.formatted(.currency(code: "MXN")))
                                 .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(Color("MoneyGreen"))
                         }
 
                         Spacer()
 
                         Button(action: {
+                            showRedirecting = true
                             cartViewModel.fetchCheckoutURL { url in
-                                if let url = url {
-                                    checkoutURL = url
-                                    print("OrderSummaryView: opening checkout URL -> \(url)")
-                                } else {
-                                    print("OrderSummaryView: failed to get checkout URL")
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                    showRedirecting = false
+                                    if let finalURL = url {
+                                        print("🔗 [DEBUG] URL de checkout:", finalURL.absoluteString)
+                                        safariURL = finalURL
+                                    }
                                 }
                             }
                         }) {
                             HStack(spacing: 8) {
-                                Image("mercado_pago_icon") // asegúrate de tenerlo en tus Assets
+                                Image("mercado_pago_icon")
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(height: 50)
-                                
+                                    .frame(height: 30)
                                 Text("Pagar ahora")
                                     .font(.headline)
                                     .fontWeight(.semibold)
                             }
                             .frame(width: 200, height: 50)
-                            .background(Color(red: 0.0, green: 0.62, blue: 0.89)) // #009ee3
+                            .background(Color(red: 0.0, green: 0.62, blue: 0.89))
                             .foregroundColor(.white)
                             .clipShape(Capsule())
                         }
-                        .padding()
                     }
                     .padding()
                     .id("summaryBottom")
@@ -299,7 +243,7 @@ struct OrderSummaryView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 16)
                         .fill(Color(.systemBackground))
-                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: -2)
+                        .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: -2)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
@@ -307,19 +251,32 @@ struct OrderSummaryView: View {
                 )
                 .padding(.bottom, 10)
                 .frame(maxWidth: .infinity)
-
             }
             .edgesIgnoringSafeArea(.bottom)
         }
-        .fullScreenCover(item: $checkoutURL) { url in
+        .fullScreenCover(isPresented: $showRedirecting) {
+            // Sigue usando tu vista de “Conectando…” intacta
+            RedirectingView()
+        }
+        .fullScreenCover(item: $safariURL) { url in
             SafariView(url: url)
                 .ignoresSafeArea()
         }
-        .onChange(of: paymentCoordinator.redirigirATab) {
-            if let tab = paymentCoordinator.redirigirATab {
-                selectedTab = tab
-                paymentCoordinator.resetEstadoPago()
+        .onChange(of: paymentCoordinator.redirigirATab) { newTab in
+            guard let tab = newTab else { return }
+            print("🔄 OrderSummaryView.onChange – redirigirATab=\(tab), estadoPago=\(paymentCoordinator.estadoPago.rawValue)")
+
+            selectedTab = tab
+
+            if paymentCoordinator.estadoPago == .exitoso ||
+               paymentCoordinator.estadoPago == .pendiente {
+                print("🧹 OrderSummaryView clearCart() llamado porque estadoPago=\(paymentCoordinator.estadoPago.rawValue)")
+                cartViewModel.clearCart()
+            } else {
+                print("🚫 No limpio carrito porque estadoPago=\(paymentCoordinator.estadoPago.rawValue)")
             }
+
+            paymentCoordinator.resetEstadoPago()
         }
     }
 }
@@ -328,8 +285,38 @@ extension URL: Identifiable {
     public var id: String { absoluteString }
 }
 
+struct RedirectingView: View {
+    var body: some View {
+        GeometryReader { geometry in
+            let isLandscape = geometry.size.width > geometry.size.height
+            let logoWidth = isLandscape ? geometry.size.width * 0.45 : geometry.size.width * 0.4
+            let fontSize = isLandscape ? geometry.size.width * 0.035 : geometry.size.width * 0.045
 
-// MARK: Vista para carrito vacío
+            BackgroundGeneralView {
+                VStack(spacing: isLandscape ? 30 : 40) {
+                    // Logo grande y balanceado
+                    Image("mercado_pago_logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: logoWidth)
+                        .shadow(radius: 4)
+
+                    // Texto tamaño medio
+                    Text("Conectando con Mercado Pago…")
+                        .font(.system(size: fontSize, weight: .medium))
+                        .foregroundColor(.white)
+
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Color("PrimaryColor")))
+                        .scaleEffect(1.4)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 32)
+            }
+        }
+    }
+}
+
 struct EmptyCartView: View {
     var body: some View {
         VStack(spacing: 20) {
@@ -338,20 +325,30 @@ struct EmptyCartView: View {
                 .scaledToFit()
                 .frame(maxWidth: 200)
                 .padding()
-
+                .foregroundColor(Color("PrimaryColor"))
+            
             Text("Tu carrito está vacío")
                 .font(.title2)
                 .fontWeight(.semibold)
-                .foregroundColor(.secondary)
+                .foregroundColor(.white)
 
-            Text("Tu carrito está vacío. ¡Hora de llenarlo!.")
-                .font(.body)
-                .foregroundColor(.secondary)
+            Text("Tu carrito está vacío. ¡Hora de llenarlo!")
+                .foregroundColor(.white)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
+        .background(Color.clear)
         .ignoresSafeArea()
+    }
+}
+
+struct CartView_Previews: PreviewProvider {
+    @State static var selectedTab = 0
+
+    static var previews: some View {
+        CartView(selectedTab: $selectedTab)
+            .environmentObject(CartViewModel(eventId: ""))
+        .previewDevice("iPhone 15 Pro")
     }
 }

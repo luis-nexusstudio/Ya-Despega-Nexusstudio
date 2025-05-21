@@ -22,20 +22,22 @@ class CheckoutService {
                 return
             }
 
+            // Cálculo de subtotal y cuota redondeada a 2 decimales
             let subtotal = eventDetails.tickets.reduce(0.0) { acc, t in
                 let count = ticketCounts[t.id] ?? 0
                 return acc + t.precio * Double(count)
             }
-            let serviceFee = (subtotal * eventDetails.cuota_servicio).rounded(.toNearestOrEven)
+            let serviceFee = (subtotal * eventDetails.cuota_servicio * 100).rounded() / 100
 
+            // Construcción de ítems
             var itemsPayload: [[String: Any]] = []
             for ticket in eventDetails.tickets {
                 let count = ticketCounts[ticket.id] ?? 0
                 guard count > 0 else { continue }
                 itemsPayload.append([
-                    "name": ticket.descripcion,
+                    "name": ticket.descripcion.trimmingCharacters(in: .whitespacesAndNewlines),
                     "qty": count,
-                    "price": ticket.precio
+                    "price": round(ticket.precio * 100) / 100
                 ])
             }
             if serviceFee > 0 {
@@ -51,26 +53,39 @@ class CheckoutService {
                 "payerEmail": user.email ?? ""
             ]
 
+            #if DEBUG
+            print("🧾 Payload enviado:", payload)
+            #endif
+
             guard let bodyData = try? JSONSerialization.data(withJSONObject: payload) else {
                 completion(nil)
                 return
             }
 
-            var request = URLRequest(url: URL(string: "http://localhost:3000/api/create-preference")!)
+            var request = URLRequest(url: URL(string: "http://localhost:4000/api/create-preference")!)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
             request.httpBody = bodyData
 
-            URLSession.shared.dataTask(with: request) { data, _, _ in
-                guard let data = data,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let id = json["preferenceId"] as? String else {
-                    completion(nil)
-                    return
-                }
-                completion(URL(string: "https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=\(id)"))
-            }.resume()
+            URLSession.shared.dataTask(with: request) { data, _, error in
+                        guard
+                            error == nil,
+                            let data = data,
+                            // parseamos un diccionario
+                            let json = try? JSONSerialization.jsonObject(with: data) as? [String:Any],
+                            // leemos el campo "checkoutUrl"
+                            let urlString = json["checkoutUrl"] as? String,
+                            let checkoutURL = URL(string: urlString)
+                        else {
+                            print("❌ Error al parsear checkoutUrl:", error ?? "unknown")
+                            DispatchQueue.main.async { completion(nil) }
+                            return
+                        }
+
+                        print("🔗 [DEBUG] checkoutUrl recibido:", checkoutURL.absoluteString)
+                        DispatchQueue.main.async { completion(checkoutURL) }
+                    }.resume()
         }
     }
 }

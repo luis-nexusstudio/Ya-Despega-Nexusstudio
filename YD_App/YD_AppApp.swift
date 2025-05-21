@@ -13,8 +13,15 @@ struct YD_AppApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appCoordinator = AppCoordinator()
     @StateObject private var paymentCoordinator = PaymentCoordinator()
+    @StateObject private var cartViewModel = CartViewModel(eventId: "8avevXHoe4aXoMQEDOic")
 
     init() {
+        let tabBarAppearance = UITabBarAppearance()
+        tabBarAppearance.configureWithOpaqueBackground()
+        tabBarAppearance.backgroundColor = UIColor.black
+
+        UITabBar.appearance().standardAppearance = tabBarAppearance
+        UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
         FirebaseApp.configure()
     }
 
@@ -22,6 +29,7 @@ struct YD_AppApp: App {
         WindowGroup {
             appCoordinator.currentView
                 .environmentObject(paymentCoordinator)
+                .environmentObject(cartViewModel)
         }
     }
 }

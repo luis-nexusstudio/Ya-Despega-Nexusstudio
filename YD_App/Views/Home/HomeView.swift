@@ -5,8 +5,6 @@
 //  Created by Luis Melendez on 04/04/25.
 //
 
-
-
 import SwiftUI
 import MapKit
 
@@ -16,30 +14,29 @@ struct HomeView: View {
     @State private var showTicketPopup = false
     @Binding var selectedTab: Int
     @EnvironmentObject var cartViewModel: CartViewModel
-    
+
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    EventHeader(title: viewModel.event.title, dateRange: viewModel.event.dateRange)
-                    
-                    AboutSection(text: viewModel.event.description)
-                    
-                    LineUpSection(speakers: viewModel.speakers)
-                    
-                    LocationSection(region: $viewModel.region)
-                    
-                    Spacer().frame(height: 80)
+        BackgroundGeneralView {
+            ZStack(alignment: .bottom) {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        EventHeader(title: viewModel.event.title, dateRange: viewModel.event.dateRange)
+                        AboutSection(text: viewModel.event.description)
+                        LineUpSection(speakers: viewModel.speakers)
+                        LocationSection(region: $viewModel.region)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 60)
+                    .padding(.bottom, 120)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 60)
+
+                FloatingButton(action: { showTicketPopup = true })
+                    .padding(.bottom, 36)
+                    .sheet(isPresented: $showTicketPopup) {
+                        TicketPopupView(selectedTab: $selectedTab)
+                            .presentationDetents([.fraction(0.8), .large])
+                    }
             }
-            
-            FloatingButton(action: { showTicketPopup = true })
-                .sheet(isPresented: $showTicketPopup) {
-                    TicketPopupView(selectedTab: $selectedTab)
-                        .presentationDetents([.fraction(0.8), .large])
-                }
         }
     }
 }
@@ -49,16 +46,16 @@ struct HomeView: View {
 struct EventHeader: View {
     let title: String
     let dateRange: String
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.title.bold())
-                .foregroundColor(.primary)
-            
+                .foregroundColor(Color("PrimaryColor"))
+
             Text(dateRange)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.white)
         }
         .padding(.bottom, 10)
     }
@@ -66,18 +63,18 @@ struct EventHeader: View {
 
 struct AboutSection: View {
     let text: String
-    
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-            
+
             VStack(alignment: .leading, spacing: 8) {
                 Text("Acerca de")
                     .font(.headline)
                     .foregroundColor(.primary)
-                
+
                 Text(text)
                     .font(.body)
                     .foregroundColor(.secondary)
@@ -86,25 +83,25 @@ struct AboutSection: View {
             .padding(20)
         }
         .frame(height: 300)
-        .frame(maxWidth: .infinity) // 👈 Responsivo
+        .frame(maxWidth: .infinity)
         .padding(.bottom, 40)
     }
 }
 
 struct LineUpSection: View {
     let speakers: [Speaker]
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Line Up")
                 .font(.title.bold())
-                .foregroundColor(.primary)
-            
+                .foregroundColor(Color("PrimaryColor"))
+
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) { // Usar LazyHStack
+                LazyHStack(spacing: 16) {
                     ForEach(speakers) { speaker in
                         SpeakerCard(speaker: speaker)
-                            .id(speaker.id) // Identificador único
+                            .id(speaker.id)
                     }
                 }
                 .padding(.horizontal, 10)
@@ -116,7 +113,7 @@ struct LineUpSection: View {
 
 struct SpeakerCard: View {
     let speaker: Speaker
-    
+
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: speaker.iconName)
@@ -127,10 +124,10 @@ struct SpeakerCard: View {
                 .background(Color(.systemBackground))
                 .clipShape(Circle())
                 .shadow(color: .black.opacity(0.1), radius: 5)
-            
+
             Text(speaker.name)
                 .font(.caption)
-                .foregroundColor(.primary)
+                .foregroundColor(.white)
         }
         .frame(width: 120)
     }
@@ -138,13 +135,13 @@ struct SpeakerCard: View {
 
 struct LocationSection: View {
     @Binding var region: MKCoordinateRegion
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Ubicación")
                 .font(.title.bold())
-                .foregroundColor(.primary)
-            
+                .foregroundColor(Color("PrimaryColor"))
+
             Map(coordinateRegion: $region)
                 .frame(height: 200)
                 .cornerRadius(16)
@@ -155,24 +152,22 @@ struct LocationSection: View {
 
 struct FloatingButton: View {
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack {
                 Image(systemName: "ticket.fill")
                     .font(.title2)
-                Text("Ver Boletos")
+                Text("Comprar Boletos")
                     .fontWeight(.bold)
             }
             .foregroundColor(.white)
-            .padding()
-            .frame(maxWidth: .infinity)
-            .background(Color.black)
+            .padding(.vertical, 15)
+            .padding(.horizontal, 60)
+            .background(Color("PrimaryColor"))
             .cornerRadius(16)
             .shadow(color: .black.opacity(0.2), radius: 5)
         }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 20)
     }
 }
 
@@ -237,7 +232,7 @@ struct TicketPopupView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
+                .background(Color("PrimaryColor"))
                 .cornerRadius(10)
             }
             .disabled(totalTickets == 0)
@@ -289,7 +284,7 @@ struct TicketOptionView: View {
                     
                     Text(price)
                         .font(.body.bold())
-                        .foregroundColor(.blue)
+                        .foregroundColor(Color("MoneyGreen"))
                 }
                 
                 ForEach(benefits, id: \.self) { benefit in
@@ -336,7 +331,6 @@ struct TicketOptionView: View {
     }
 }
 
-
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -344,3 +338,13 @@ struct ScaleButtonStyle: ButtonStyle {
             .animation(.easeOut(duration: 0.2), value: configuration.isPressed)
     }
 }
+
+struct HomeView_Previews: PreviewProvider {
+    @State static var selectedTab = 0
+
+    static var previews: some View {
+        HomeView(selectedTab: $selectedTab)
+        .previewDevice("iPhone 15 Pro")
+    }
+}
+
