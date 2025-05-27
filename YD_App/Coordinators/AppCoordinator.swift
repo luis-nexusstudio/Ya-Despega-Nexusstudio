@@ -10,13 +10,11 @@ import SwiftUI
 import Combine
 
 class AppCoordinator: ObservableObject {
-    @Published var currentView: AnyView = AnyView(EmptyView()) // Valor por defecto
-    
+    @Published var currentView: AnyView = AnyView(SplashScreenView()) // 👈 inicia con splash
     private var loginCoordinator: LoginCoordinator?
 
     init() {
-        // Llama a showLogin después de que self se inicialice completamente
-        DispatchQueue.main.async {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             self.showLogin()
         }
     }

@@ -19,11 +19,9 @@ struct LoginView: View {
     @State private var loginError: String?
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        BackgroundGeneralView {
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 20) {
-                    Spacer(minLength: 60)
-
+                VStack(spacing: 22) {
                     LogoHeader()
 
                     CredentialFields(email: $email, password: $password)
@@ -70,18 +68,16 @@ struct LoginView: View {
                         }
                     )
 
-                    Spacer(minLength: 40)
-
                     RegisterButton(showRegister: $showRegisterView)
                         .sheet(isPresented: $showRegisterView) {
                             RegisterView(onRegisterSuccess: {
                                 showRegisterView = false
                             })
                         }
-
-                    Spacer(minLength: 20)
                 }
-                .padding()
+                .padding(.horizontal, 24)
+                .padding(.vertical, 40)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
             .ignoresSafeArea(.keyboard)
         }
@@ -92,13 +88,11 @@ struct LoginView: View {
 struct LogoHeader: View {
     var body: some View {
         VStack(spacing: 10) {
-            Image("YaDespegaLogo")
+            Image("ImagenFooterYD")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 100, height: 100)
-
-            Text("Iniciar Sesión")
-                .font(.largeTitle.bold())
+                .frame(maxWidth: 400)
+                .padding(.top, 30)
         }
     }
 }
@@ -109,20 +103,22 @@ struct CredentialFields: View {
     @Binding var password: String
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 18) {
             TextField("Correo electrónico", text: $email)
                 .textContentType(.emailAddress)
                 .keyboardType(.emailAddress)
                 .autocapitalization(.none)
                 .padding()
-                .background(Color(.secondarySystemBackground))
+                .background(Color.white)
                 .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
 
             SecureField("Contraseña", text: $password)
                 .textContentType(.password)
                 .padding()
-                .background(Color(.secondarySystemBackground))
+                .background(Color.white)
                 .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
         }
     }
 }
@@ -134,7 +130,7 @@ struct ForgotPasswordButton: View {
             // Acción de recuperación
         }
         .font(.footnote)
-        .foregroundColor(.blue)
+        .foregroundColor(Color("PrimaryColor"))
         .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
@@ -148,7 +144,7 @@ struct LoginButton: View {
                 .foregroundColor(.white)
                 .frame(width: 200)
                 .padding()
-                .background(Color.blue)
+                .background(Color("PrimaryColor"))
                 .cornerRadius(12)
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -194,6 +190,7 @@ struct SocialLoginButtons: View {
                 .frame(maxWidth: .infinity)
                 .padding()
                 .background(Color.white)
+                .cornerRadius(12)
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.4)))
             }
 
@@ -205,7 +202,7 @@ struct SocialLoginButtons: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.black)
+                .background(Color("SecondaryColor"))
                 .cornerRadius(12)
             }
         }
@@ -222,9 +219,9 @@ struct RegisterButton: View {
         }) {
             (
                 Text("¿No tienes cuenta? ")
-                    .foregroundColor(.primary) +
+                    .foregroundColor(.white) +
                 Text("Regístrate")
-                    .foregroundColor(.blue)
+                    .foregroundColor(Color("PrimaryColor"))
                     .fontWeight(.semibold)
             )
         }

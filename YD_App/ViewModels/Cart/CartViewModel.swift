@@ -19,9 +19,6 @@ class CartViewModel: ObservableObject {
 
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
-    @Published var estadoPago: EstadoPago = .ninguno
-
-    // Almacena detalles del evento y reinicia contadores al cambiar
     @Published var eventDetails: EventDetails? {
         didSet {
             ticketCounts = [:]
@@ -30,9 +27,9 @@ class CartViewModel: ObservableObject {
     }
     @Published var ticketCounts: [String:Int] = [:]
 
-    private let baseURL = URL(string: "http://localhost:3000/api")!
 
     init(eventId: String) {
+        
         guard !eventId.isEmpty else {
             self.errorMessage = "ID de evento inválido"
             return
@@ -43,51 +40,19 @@ class CartViewModel: ObservableObject {
     func fetchEventDetails(eventId: String) {
         isLoading = true
         errorMessage = nil
-        Auth.auth().currentUser?.getIDToken { [weak self] token, error in
-            guard let self = self,
-                  let token = token,
-                  error == nil else {
-                DispatchQueue.main.async {
-                    self?.isLoading = false
-                    self?.errorMessage = "No hay token válido"
-                }
-                
-                return
-            }
-            print(token)
-            let url = baseURL.appendingPathComponent("event-details/\(eventId)")
-            var req = URLRequest(url: url)
-            req.httpMethod = "GET"
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-            URLSession.shared.dataTask(with: req) { data, resp, err in
-                DispatchQueue.main.async { self.isLoading = false }
-                if let err = err {
-                    DispatchQueue.main.async { self.errorMessage = "Error red: \(err.localizedDescription)" }
-                    return
+        EventService.getEventDetails(eventId: eventId) { [weak self] details, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                if let error = error {
+                    self?.errorMessage = error
+                } else {
+                    self?.eventDetails = details
                 }
-                if let http = resp as? HTTPURLResponse,
-                   !(200..<300).contains(http.statusCode) {
-                    DispatchQueue.main.async { self.errorMessage = "HTTP \(http.statusCode)" }
-                    return
-                }
-                guard let data = data else {
-                    DispatchQueue.main.async { self.errorMessage = "Respuesta vacía" }
-                    return
-                }
-                do {
-                    let details = try JSONDecoder().decode(EventDetails.self, from: data)
-                    print("✅ Evento decodificado correctamente: \(details)")
-                    DispatchQueue.main.async { self.eventDetails = details }
-                } catch {
-                    print("❌ Error al decodificar evento:", error)
-                    print("🧾 Raw JSON:", String(data: data, encoding: .utf8) ?? "No se pudo mostrar")
-                    DispatchQueue.main.async { self.errorMessage = "Decode error: \(error)" }
-                }
-            }.resume()
+            }
         }
     }
-
+    
     private func roundTo2(_ value: Double) -> Double {
         (value * 100).rounded() / 100
     }
@@ -117,11 +82,15 @@ class CartViewModel: ObservableObject {
     func increment(_ ticket: Ticket) {
         ticketCounts[ticket.id, default: 0] += 1
     }
+    
     func decrement(_ ticket: Ticket) {
         ticketCounts[ticket.id] = max(0, (ticketCounts[ticket.id] ?? 0) - 1)
     }
+    
     func clearCart() {
+        print("🗑️ CartViewModel.clearCart() – tickets antes: \(ticketCounts)")
         ticketCounts.keys.forEach { ticketCounts[$0] = 0 }
+        print("🗑️ CartViewModel.clearCart() – tickets después: \(ticketCounts)")
     }
 
     private func makeItemsPayload() -> [[String: Any]] {
