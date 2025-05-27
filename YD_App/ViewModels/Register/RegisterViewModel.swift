@@ -53,7 +53,8 @@ class RegisterViewModel: ObservableObject {
                     "apellido_materno": userData.apellidoMaterno,
                     "numero_celular": userData.numeroCelular,
                     "rol_id": userData.rolId,
-                    "fecha_registro": Timestamp(date: userData.fechaRegistro)
+                    "fecha_registro": Timestamp(date: userData.fechaRegistro),
+                    "email": email
                 ]
 
                 db.collection("usuarios").document(uid).setData(userDict) { error in
