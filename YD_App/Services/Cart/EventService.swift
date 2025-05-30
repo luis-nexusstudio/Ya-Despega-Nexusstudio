@@ -8,43 +8,71 @@
 import Foundation
 import FirebaseAuth
 
-class EventService {
-    private static let baseURL = URL(string: "http://localhost:4000/api")!
-
-    static func getEventDetails(eventId: String, completion: @escaping (EventDetails?, String?) -> Void) {
-        Auth.auth().currentUser?.getIDToken { token, error in
-            guard let token = token, error == nil else {
-                completion(nil, "No hay token válido")
+struct EventService {
+    static func getEventDetails(eventId: String, completion: @escaping (Result<EventDetails, Error>) -> Void) {
+        guard let user = Auth.auth().currentUser else {
+            let error = NSError(domain: "", code: 401, userInfo: [NSLocalizedDescriptionKey: "No autorizado"])
+            completion(.failure(error))
+            return
+        }
+        
+        user.getIDToken { token, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let token = token else {
+                let error = NSError(domain: "", code: 401, userInfo: [NSLocalizedDescriptionKey: "Token inválido"])
+                completion(.failure(error))
+                return
+            }
+            
+            guard let url = URL(string: "http://localhost:4000/api/event-details/\(eventId)") else {
+                let error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "URL inválida"])
+                completion(.failure(error))
                 return
             }
 
-            let url = baseURL.appendingPathComponent("event-details/\(eventId)")
-            var req = URLRequest(url: url)
-            req.httpMethod = "GET"
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-            URLSession.shared.dataTask(with: req) { data, resp, err in
-                if let err = err {
-                    completion(nil, "Error de red: \(err.localizedDescription)")
-                    return
-                }
-
-                guard let http = resp as? HTTPURLResponse,
-                      (200..<300).contains(http.statusCode),
-                      let data = data else {
-                    completion(nil, "HTTP inválido o sin datos")
-                    return
-                }
-
-                do {
-                    let details = try JSONDecoder().decode(EventDetails.self, from: data)
-                    completion(details, nil)
-                } catch {
-                    let raw = String(data: data, encoding: .utf8) ?? "No se pudo mostrar JSON"
-                    print("❌ Decode error:", error, "\n🧾 Raw:", raw)
-                    completion(nil, "Error al decodificar evento")
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            
+            URLSession.shared.dataTask(with: request) { data, response, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        completion(.failure(error))
+                        return
+                    }
+                    
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Respuesta inválida"])
+                        completion(.failure(error))
+                        return
+                    }
+                    
+                    if httpResponse.statusCode == 401 {
+                        let error = NSError(domain: "", code: 401, userInfo: [NSLocalizedDescriptionKey: "No autorizado"])
+                        completion(.failure(error))
+                        return
+                    }
+                    
+                    guard let data = data else {
+                        let error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])
+                        completion(.failure(error))
+                        return
+                    }
+                    
+                    do {
+                        let details = try JSONDecoder().decode(EventDetails.self, from: data)
+                        completion(.success(details))
+                    } catch {
+                        completion(.failure(error))
+                    }
                 }
             }.resume()
         }
     }
 }
+

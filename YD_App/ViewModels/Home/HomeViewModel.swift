@@ -2,55 +2,126 @@
 //  HomeViewModel.swift
 //  YD_App
 //
-//  Created by Luis Melendez on 20/03/25.
+//  SOLO CORRECCIONES CRÍTICAS - Updated by Luis Melendez on 26/05/25.
 //
 
 import SwiftUI
 import MapKit
 
+// MARK: - 3. HomeViewModel (SOLO responsable de datos de Home específicos)
 class HomeViewModel: ObservableObject {
-    // MARK: - Published Properties
-    @Published var event: Event
-    @Published var speakers: [Speaker]
+    @Published var homeEventData: HomeEventData?
+    @Published var isLoading = false
+    @Published var currentAppError: AppError?
+    @Published var isRetrying = false  // ✅ AGREGADO para indicar reintento
     @Published var region: MKCoordinateRegion
     
+    private let eventId: String
+    
+    // MARK: - Computed Properties
+    var hasData: Bool {
+        homeEventData != nil
+    }
+    
+    var eventTitle: String {
+        homeEventData?.nombre ?? "Ya Despega"
+    }
+    
+    var eventDateRange: String {
+        guard let data = homeEventData else { return "Cargando fechas..." }
+        return data.fechaInicio.date.formatDateRange(to: data.fechaFin.date)
+    }
+    
+    var eventDescription: String {
+        homeEventData?.informacion_evento ?? "Cargando información del evento..."
+    }
+    
+    var speakers: [LineupSpeaker] {
+        homeEventData?.lineup ?? []
+    }
+    
+    var eventTerms: [String] {
+        homeEventData?.terminos ?? []
+    }
+    
+    // ✅ CORREGIDO: Ahora usa ubicacionNombre en lugar de ubicacion directamente
+    var locationName: String {
+        homeEventData?.ubicacionNombre ?? "Cargando ubicación..."
+    }
+    
     // MARK: - Initialization
-    init() {
-        // Primero definimos la ubicación que usaremos en ambos lugares
-        let eventLocation = CLLocationCoordinate2D(latitude: 21.1236, longitude: -101.6820)
-        
-        // Inicializamos event
-        self.event = Event(
-            title: "Ya Despega",
-            dateRange: "Jul 29 - Ago 02, 2025",
-            description: "Ya Despega es un congreso de 3 días para jóvenes, líderes juveniles, pastores e hijos de pastor. Durante estos días los jóvenes son ministrados y retados a responder al gran llamado que Dios nos ha dado como generación para impactar nuestra nación, y serán provistos de herramientas prácticas espirituales para potencializar sus dones y talentos.",
-            location: eventLocation
-        )
-        
-        // Inicializamos speakers
-        self.speakers = [
-            Speaker(id: "1", name: "Conferencista 1", iconName: "person.fill", bio: nil),
-            Speaker(id: "2", name: "Conferencista 2", iconName: "person.fill", bio: nil),
-            Speaker(id: "3", name: "Conferencista 3", iconName: "person.fill", bio: nil),
-            Speaker(id: "4", name: "Conferencista 4", iconName: "person.fill", bio: nil),
-            Speaker(id: "5", name: "Conferencista 5", iconName: "person.fill", bio: nil),
-            Speaker(id: "6", name: "Conferencista 6", iconName: "person.fill", bio: nil)
-        ]
-        
-        // Finalmente inicializamos region usando la ubicación que ya definimos
+    init(eventId: String) {
+        self.eventId = eventId
         self.region = MKCoordinateRegion(
-            center: eventLocation,
-            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            center: CLLocationCoordinate2D(latitude: 21.1236, longitude: -101.6820),
+            span: MKCoordinateSpan(latitudeDelta: 0.09, longitudeDelta: 0.09)
         )
+        
+        fetchHomeEventData()
     }
     
-    // MARK: - Public Methods
-    func fetchEventData() async {
-        // Aquí iría la lógica para obtener datos reales de la API
-        // Por ahora usamos los datos mock
+    // MARK: - Methods
+    func fetchHomeEventData() {
+        guard !isLoading else { return }
+        
+        isLoading = true
+        currentAppError = nil
+        
+        print("🏠 [HomeViewModel] Cargando datos de Home para eventId: \(eventId)")
+        
+        HomeService.getHomeEvent(eventId: eventId) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                
+                self.isLoading = false
+                self.isRetrying = false  // ✅ Resetear estado de reintento
+                
+                switch result {
+                case .success(let data):
+                    self.homeEventData = data
+                    self.updateRegion(for: data.coordenadas)
+                    print("✅ [HomeViewModel] Datos de Home cargados exitosamente")
+                    
+                case .failure(let error):
+                    self.handleError(error)  // ✅ Usar manejo centralizado
+                    print("❌ [HomeViewModel] Error cargando Home: \(error.localizedDescription)")
+                }
+            }
+        }
     }
     
-    func fetchSpeakers() async {
-        // Lógica para obtener speakers reales
+    func refreshData() {
+        print("🔄 [HomeViewModel] Refrescando datos de Home")
+        fetchHomeEventData()
     }
+    
+    func retryLoadData() {
+        guard !isRetrying else { return }
+        isRetrying = true
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.fetchHomeEventData()
+        }
+    }
+
+    
+    private func updateRegion(for coordinates: Coordenadas) {
+        let coordinate = CLLocationCoordinate2D(
+            latitude: coordinates.lat,
+            longitude: coordinates.lng
+        )
+        
+        withAnimation(.easeInOut(duration: 0.5)) {
+            region = MKCoordinateRegion(
+                center: coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.09, longitudeDelta: 0.09)
+            )
+        }
+    }
+    
+    private func handleError(_ error: Error) {
+        self.currentAppError = error.toAppError()
+    }
+
+
 }

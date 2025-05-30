@@ -12,8 +12,9 @@ import FirebaseCore
 struct YD_AppApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appCoordinator = AppCoordinator()
-    @StateObject private var paymentCoordinator = PaymentCoordinator()
-    @StateObject private var cartViewModel = CartViewModel(eventId: "8avevXHoe4aXoMQEDOic")
+    @StateObject private var cartViewModel = CartViewModel() // ← SIN eventId
+    @StateObject private var eventViewModel = EventViewModel(eventId: "8avevXHoe4aXoMQEDOic")
+    @StateObject private var homeViewModel = HomeViewModel(eventId: "8avevXHoe4aXoMQEDOic")
 
     init() {
         let tabBarAppearance = UITabBarAppearance()
@@ -28,8 +29,9 @@ struct YD_AppApp: App {
     var body: some Scene {
         WindowGroup {
             appCoordinator.currentView
-                .environmentObject(paymentCoordinator)
                 .environmentObject(cartViewModel)
+                .environmentObject(eventViewModel)
+                .environmentObject(homeViewModel)
         }
     }
 }
