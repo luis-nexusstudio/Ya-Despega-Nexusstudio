@@ -1,5 +1,7 @@
 {
+
   "originHash" : "3def7688aeb2b8c3d08f2333471a5a3d06fe282877011c287d0e7c42c8058cbc",
+
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -143,15 +145,6 @@
       "state" : {
         "revision" : "540318ecedd63d883069ae7f1ed811a2df00b6ac",
         "version" : "2.4.0"
-      }
-    },
-    {
-      "identity" : "sdk-ios",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mercadopago/sdk-ios.git",
-      "state" : {
-        "branch" : "main",
-        "revision" : "39e6f41517a3d208762b9b0ffeea6cdeffc73f54"
       }
     },
     {
