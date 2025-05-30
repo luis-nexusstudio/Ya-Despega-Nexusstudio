@@ -2,47 +2,82 @@
 //  HomeView.swift
 //  YD_App
 //
-//  Created by Luis Melendez on 04/04/25.
+//  NUEVA ARQUITECTURA - Con manejo de errores estandarizado
+//  Updated by Luis Melendez on 27/05/25.
 //
 
 import SwiftUI
-import MapKit
 
-// MARK: - Main View
 struct HomeView: View {
-    @StateObject private var viewModel = HomeViewModel()
+    @EnvironmentObject var homeViewModel: HomeViewModel
+    @EnvironmentObject var eventViewModel: EventViewModel
+    @EnvironmentObject var cartViewModel: CartViewModel
     @State private var showTicketPopup = false
     @Binding var selectedTab: Int
-    @EnvironmentObject var cartViewModel: CartViewModel
 
     var body: some View {
         BackgroundGeneralView {
             ZStack(alignment: .bottom) {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        EventHeader(title: viewModel.event.title, dateRange: viewModel.event.dateRange)
-                        AboutSection(text: viewModel.event.description)
-                        LineUpSection(speakers: viewModel.speakers)
-                        LocationSection(region: $viewModel.region)
+                if homeViewModel.isLoading {
+                    loadingView
+                } else if let appError = homeViewModel.currentAppError {
+                    StandardErrorView(
+                        error: appError ,
+                        isRetrying: homeViewModel.isRetrying,
+                        onRetry: {
+                            eventViewModel.retryLoad()
+                            homeViewModel.retryLoadData()
+                        }
+                    )
+                } else if homeViewModel.homeEventData == nil && homeViewModel.speakers.isEmpty {
+                    emptyStateView
+                } else {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 20) {
+                            EventHeader(title: homeViewModel.eventTitle, dateRange: homeViewModel.eventDateRange)
+                            AboutSection(text: homeViewModel.eventDescription)
+                            LineUpSection(speakers: homeViewModel.speakers)
+                            LocationSection(locationName: homeViewModel.locationName,
+                                            latitude: homeViewModel.homeEventData?.coordenadas.lat ?? 0.0,
+                                            longitude: homeViewModel.homeEventData?.coordenadas.lng ?? 0.0)
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 60)
+                        .padding(.bottom, 120)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 60)
-                    .padding(.bottom, 120)
+                    
+                    if !homeViewModel.isLoading && homeViewModel.currentAppError == nil {
+                        FloatingButton(action: {
+                            showTicketPopup = true
+                        })
+                        .padding(.bottom, 36)
+                        .sheet(isPresented: $showTicketPopup) {
+                            TicketPopupView(selectedTab: $selectedTab)
+                                .presentationDetents([.fraction(0.8), .large])
+                        }
+                    }
                 }
-
-                FloatingButton(action: { showTicketPopup = true })
-                    .padding(.bottom, 36)
-                    .sheet(isPresented: $showTicketPopup) {
-                        TicketPopupView(selectedTab: $selectedTab)
-                            .presentationDetents([.fraction(0.8), .large])
-                    }
             }
+            
         }
+        
+    }
+    
+    private var loadingView: some View {
+        StandardLoadingView(message: "Cargando información del evento")
+    }
+    
+    private var emptyStateView: some View {
+        StandardEmptyStateView(
+            title: "Sin información",
+            message: "No contamos con información relacionada a este evento",
+            icon: "info"
+        )
     }
 }
 
-// MARK: - Components
 
+// MARK: - Components (sin cambios)
 struct EventHeader: View {
     let title: String
     let dateRange: String
@@ -82,14 +117,14 @@ struct AboutSection: View {
             }
             .padding(20)
         }
-        .frame(height: 300)
+        .frame(minHeight: 200)
         .frame(maxWidth: .infinity)
         .padding(.bottom, 40)
     }
 }
 
 struct LineUpSection: View {
-    let speakers: [Speaker]
+    let speakers: [LineupSpeaker]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -97,14 +132,35 @@ struct LineUpSection: View {
                 .font(.title.bold())
                 .foregroundColor(Color("PrimaryColor"))
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(speakers) { speaker in
-                        SpeakerCard(speaker: speaker)
-                            .id(speaker.id)
+            if speakers.isEmpty {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(.systemBackground))
+                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                    
+                    VStack(spacing: 12) {
+                        Image(systemName: "person.3.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.gray)
+                        
+                        Text("Información del lineup próximamente...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                     }
+                    .padding(40)
                 }
-                .padding(.horizontal, 10)
+                .frame(height: 150)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 16) {
+                        ForEach(speakers) { speaker in
+                            SpeakerCard(speaker: speaker)
+                                .id(speaker.id)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                }
             }
         }
         .padding(.bottom, 40)
@@ -112,40 +168,101 @@ struct LineUpSection: View {
 }
 
 struct SpeakerCard: View {
-    let speaker: Speaker
+    let speaker: LineupSpeaker
 
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: speaker.iconName)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 60, height: 60)
-                .padding()
-                .background(Color(.systemBackground))
-                .clipShape(Circle())
-                .shadow(color: .black.opacity(0.1), radius: 5)
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color(.systemBackground))
+                    .frame(width: 80, height: 80)
+                    .shadow(color: .black.opacity(0.1), radius: 5)
+                
+                Image(systemName: "person.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .foregroundColor(Color("PrimaryColor"))
+            }
 
-            Text(speaker.name)
-                .font(.caption)
-                .foregroundColor(.white)
+            VStack(spacing: 4) {
+                Text(speaker.nombre)
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                
+                if !speaker.informacion.isEmpty {
+                    Text(speaker.informacion)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                }
+            }
         }
         .frame(width: 120)
+        .padding(.vertical, 8)
     }
 }
 
 struct LocationSection: View {
-    @Binding var region: MKCoordinateRegion
-
+    let locationName: String
+    let latitude: Double
+    let longitude: Double
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Ubicación")
                 .font(.title.bold())
                 .foregroundColor(Color("PrimaryColor"))
 
-            Map(coordinateRegion: $region)
-                .frame(height: 200)
-                .cornerRadius(16)
-                .shadow(color: .black.opacity(0.1), radius: 5)
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                
+                VStack(spacing: 16) {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 40))
+                        .foregroundColor(Color("PrimaryColor"))
+                    
+                    Text(locationName)
+                        .font(.title2.bold())
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.center)
+                    
+                    VStack(spacing: 8) {
+                        Text("Lat: \(latitude, specifier: "%.4f"), Lng: \(longitude, specifier: "%.4f")")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .opacity(0.7)
+                        
+                        Button(action: openInMaps) {
+                            HStack {
+                                Image(systemName: "map.fill")
+                                Text("Ver en Mapas")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(Color("PrimaryColor"))
+                            .cornerRadius(10)
+                        }
+                    }
+                }
+                .padding(40)
+            }
+            .frame(height: 400)
+        }
+    }
+    
+    private func openInMaps() {
+        let urlString = "http://maps.apple.com/?ll=\(latitude),\(longitude)&q=\(locationName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        
+        if let url = URL(string: urlString) {
+            UIApplication.shared.open(url)
         }
     }
 }
@@ -171,10 +288,10 @@ struct FloatingButton: View {
     }
 }
 
-// MARK: - Ticket Views
-
+// MARK: - TICKET POPUP ACTUALIZADO
 struct TicketPopupView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var eventViewModel: EventViewModel
     @EnvironmentObject var cartViewModel: CartViewModel
     @Binding var selectedTab: Int
     @State private var ticketSelection: [String: Int] = [:]
@@ -185,18 +302,30 @@ struct TicketPopupView: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            // Header
             HStack {
                 Text("Boletos Disponibles")
                     .font(.title2.bold())
                 Spacer()
             }
-            .padding(.top, 60)
+            .padding(.top, 20)
             
             Divider()
             
-            // Lista de boletos
-            if let details = cartViewModel.eventDetails {
+            if eventViewModel.isLoading {
+                StandardLoadingView(message: "Cargando boletos disponibles...")
+                    .frame(maxHeight: .infinity)
+                
+            } else if let appError = eventViewModel.currentAppError {
+                StandardErrorView(
+                    error: appError,
+                    isRetrying: eventViewModel.isRetrying,
+                    onRetry: {
+                        eventViewModel.retryLoad()
+                    }
+                )
+                .frame(maxHeight: .infinity)
+                
+            } else if let details = eventViewModel.eventDetails, !details.tickets.isEmpty {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 20) {
                         ForEach(details.tickets) { ticket in
@@ -214,29 +343,36 @@ struct TicketPopupView: View {
                     }
                     .padding(.bottom, 20)
                 }
-            } else {
-                Text("Cargando boletos...")
-                    .foregroundColor(.gray)
+                
+                Button(action: addToCart) {
+                    HStack {
+                        Image(systemName: "cart.fill")
+                        Text(totalTickets > 0 ?
+                             "Agregar \(totalTickets) al carrito" :
+                             "Agregar al carrito")
+                    }
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
                     .padding()
-            }
-            
-            // Botón de carrito
-            Button(action: addToCart) {
-                HStack {
-                    Image(systemName: "cart.fill")
-                    Text(totalTickets > 0 ?
-                         "Agregar \(totalTickets) al carrito" :
-                         "Agregar al carrito")
+                    .background(Color("PrimaryColor"))
+                    .cornerRadius(10)
                 }
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color("PrimaryColor"))
-                .cornerRadius(10)
+                .disabled(totalTickets == 0)
+                .opacity(totalTickets == 0 ? 0.6 : 1)
+                
+            } else {
+                StandardEmptyStateView(
+                    title: "No hay boletos disponibles",
+                    message: "Los boletos para este evento aún no están disponibles o se agotaron",
+                    icon: "ticket.badge.minus",
+                    actionTitle: "Cerrar",
+                    action: {
+                        dismiss()
+                    }
+                )
+                .frame(maxHeight: .infinity)
             }
-            .disabled(totalTickets == 0)
-            .opacity(totalTickets == 0 ? 0.6 : 1)
         }
         .padding(.horizontal, 25)
         .padding(.bottom, 20)
@@ -262,7 +398,6 @@ struct TicketOptionView: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Imagen del boleto
             Image(imageName)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
@@ -274,7 +409,6 @@ struct TicketOptionView: View {
                         .stroke(Color.white.opacity(0.3), lineWidth: 1)
                 )
             
-            // Contenido
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(type)
@@ -299,7 +433,6 @@ struct TicketOptionView: View {
                     }
                 }
                 
-                // Selector de cantidad
                 HStack {
                     Button(action: {
                         if count > 0 { count -= 1 }
@@ -331,20 +464,15 @@ struct TicketOptionView: View {
     }
 }
 
-struct ScaleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.easeOut(duration: 0.2), value: configuration.isPressed)
-    }
-}
-
+// MARK: - Preview
 struct HomeView_Previews: PreviewProvider {
     @State static var selectedTab = 0
 
     static var previews: some View {
         HomeView(selectedTab: $selectedTab)
-        .previewDevice("iPhone 15 Pro")
+            .environmentObject(EventViewModel(eventId: "8avevXHoe4aXoMQEDOic"))
+            .environmentObject(CartViewModel())
+            .environmentObject(HomeViewModel(eventId: "8avevXHoe4aXoMQEDOic"))
+            .previewDevice("iPhone 15 Pro")
     }
 }
-

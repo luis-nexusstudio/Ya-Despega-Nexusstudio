@@ -2,15 +2,16 @@
 //  MainView.swift
 //  YD_App
 //
-//  Created by Luis Melendez on 20/03/25.
+//  NUEVA ARQUITECTURA - Updated by Luis Melendez on 26/05/25.
 //
 
 import SwiftUI
 
 struct MainView: View {
-    // 1) Recibe los env–objects, no los creas aquí
+    // 🔧 RECIBE TODOS LOS ENVIRONMENT OBJECTS
     @EnvironmentObject var cartViewModel: CartViewModel
-    @EnvironmentObject var paymentCoordinator: PaymentCoordinator
+    @EnvironmentObject var eventViewModel: EventViewModel  // ← NUEVO
+    @EnvironmentObject var homeViewModel: HomeViewModel    // ← AGREGADO
 
     @State private var selectedTab = 0
 
@@ -25,16 +26,17 @@ struct MainView: View {
                     .tabItem {
                         Label(
                           "Carrito",
-                          systemImage: cartViewModel.totalTickets > 0
+                          // 🔧 USAR EVENTVIEWMODEL PARA CALCULAR TOTAL
+                          systemImage: totalTicketsInCart > 0
                             ? "cart.fill.badge.plus"
                             : "cart"
                         )
                     }
                     .tag(1)
-                    .badge(cartViewModel.totalTickets)
+                    .badge(totalTicketsInCart) // ← USAR COMPUTED PROPERTY
 
                 MyTicketsView()
-                    .tabItem { Label("Tickets", systemImage: "ticket.fill") }
+                    .tabItem { Label("Boletos", systemImage: "ticket.fill") }
                     .tag(2)
 
                 ProfileView()
@@ -45,6 +47,11 @@ struct MainView: View {
             .background(Color.black.opacity(0.001))
         }
     }
+    
+    // 🔧 COMPUTED PROPERTY PARA TOTAL DE TICKETS
+    private var totalTicketsInCart: Int {
+        cartViewModel.totalTickets(for: eventViewModel.eventDetails)
+    }
 }
 
 struct MainView_Previews: PreviewProvider {
@@ -52,7 +59,10 @@ struct MainView_Previews: PreviewProvider {
 
     static var previews: some View {
         MainView()
-        .previewDevice("iPhone 15 Pro")
+            .environmentObject(CartViewModel())
+            .environmentObject(EventViewModel(eventId: "8avevXHoe4aXoMQEDOic"))
+            .environmentObject(HomeViewModel(eventId: "8avevXHoe4aXoMQEDOic"))
+            .previewDevice("iPhone 15 Pro")
     }
 }
 
