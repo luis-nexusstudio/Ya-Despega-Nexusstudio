@@ -197,35 +197,58 @@ struct StandardLoadingView: View {
 extension Error {
     func toAppError() -> AppError {
         
+        if let registerError = self as? RegisterError {
+            switch registerError {
+            case .emailAlreadyExists:
+                return .unknown("El correo ya está registrado")
+            case .weakPassword:
+                return .unknown("La contraseña debe tener al menos 6 caracteres")
+            case .invalidEmail:
+                return .unknown("Formato de correo inválido")
+            case .validationFailed(let message):
+                return .unknown(message)
+            case .noInternet:
+                return .noInternet
+            case .timeout:
+                return .timeout
+            case .serverUnreachable:
+                return .serverUnreachable
+            case .serverError:
+                return .serverError
+            default:
+                return .unknown(registerError.localizedDescription)
+            }
+        }
+        
         if let orderError = self as? OrderError {
-                switch orderError {
-                    case .unauthorized:
-                        return .unauthorized
-                    case .notFound:
-                        return .notFound
-                    case .timeout:
-                        return .timeout
-                    case .noInternet:               // ← NUEVO
-                        return .noInternet
-                    case .serverUnreachable:        // ← NUEVO
-                        return .serverUnreachable
-                    case .serverError:              // ← NUEVO
-                        return .serverError
-                    case .requestFailed:
-                        return .serverUnreachable   // ← CAMBIO: ya no es .noInternet
-                    default:
-                        return .serverError
-                    }
-                }
+            switch orderError {
+            case .unauthorized:
+                return .unauthorized
+            case .notFound:
+                return .notFound
+            case .timeout:
+                return .timeout
+            case .noInternet:
+                return .noInternet
+            case .serverUnreachable:
+                return .serverUnreachable
+            case .serverError:
+                return .serverError
+            case .requestFailed:
+                return .serverUnreachable
+            default:
+                return .serverError
+            }
+        }
         
         if let nsError = self as NSError? {
             switch nsError.code {
             case NSURLErrorNotConnectedToInternet,
                  NSURLErrorNetworkConnectionLost:
                 return .noInternet
-            case -1004: // 🚀 server unreachable
+            case -1004:
                 return .serverUnreachable
-            case 1: // 🚀 server unreachable
+            case 1:
                 return .serverUnreachable
             case NSURLErrorTimedOut:
                 return .timeout
