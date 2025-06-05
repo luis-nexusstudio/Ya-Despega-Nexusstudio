@@ -10,7 +10,7 @@ import FirebaseAuth
 
 class ProfileService {
     // URLs para los endpoints de la API
-    private let baseURL = "http://localhost:3000/api"
+    private let baseURL = "http://localhost:4000/api"
     private let userEndpoint = "/user/"
     
     // Obtener el token de Firebase para autenticación

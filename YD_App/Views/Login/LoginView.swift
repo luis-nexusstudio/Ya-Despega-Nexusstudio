@@ -1,9 +1,3 @@
-//
-//  LoginView.swift
-//  YD_App
-//
-//  Created by Luis Melendez on 20/03/25.
-//
 
 import SwiftUI
 
@@ -11,6 +5,7 @@ struct LoginView: View {
     @StateObject var authViewModel = LoginViewModel()
     @Environment(\.presentationMode) var presentationMode
     @State private var showRegisterView = false
+    @State private var showForgotPassword = false
     var onLoginSuccess: () -> Void
 
     @State private var email = ""
@@ -26,7 +21,7 @@ struct LoginView: View {
 
                     CredentialFields(email: $email, password: $password)
 
-                    ForgotPasswordButton()
+                    ForgotPasswordButton(showForgotPassword: $showForgotPassword)
 
                     LoginButton {
                         isLoading = true
@@ -81,6 +76,9 @@ struct LoginView: View {
             }
             .ignoresSafeArea(.keyboard)
         }
+        .sheet(isPresented: $showForgotPassword) {
+            ForgotPasswordView()
+        }
     }
 }
 
@@ -125,9 +123,11 @@ struct CredentialFields: View {
 
 // MARK: Boton para el olvido de contraseña
 struct ForgotPasswordButton: View {
+    @Binding var showForgotPassword: Bool
+    
     var body: some View {
         Button("¿Olvidaste tu contraseña?") {
-            // Acción de recuperación
+            showForgotPassword = true
         }
         .font(.footnote)
         .foregroundColor(Color("PrimaryColor"))

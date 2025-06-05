@@ -1,7 +1,5 @@
 {
-
-  "originHash" : "3def7688aeb2b8c3d08f2333471a5a3d06fe282877011c287d0e7c42c8058cbc",
-
+  "originHash" : "aed6161a5841929d4e4f4508d9674b9018d969ee67c4649e02a9809761aeaf8a",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -130,15 +128,6 @@
       }
     },
     {
-      "identity" : "popupview",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/exyte/PopupView",
-      "state" : {
-        "revision" : "53b9a5ae0e96cdd9ade22cf8b0693291c2aa91b3",
-        "version" : "4.1.7"
-      }
-    },
-    {
       "identity" : "promises",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/promises.git",
@@ -148,21 +137,21 @@
       }
     },
     {
+      "identity" : "sdk-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mercadopago/sdk-ios.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "39e6f41517a3d208762b9b0ffeea6cdeffc73f54"
+      }
+    },
+    {
       "identity" : "swift-protobuf",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-protobuf.git",
       "state" : {
         "revision" : "d72aed98f8253ec1aa9ea1141e28150f408cf17f",
         "version" : "1.29.0"
-      }
-    },
-    {
-      "identity" : "swiftui-introspect",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/siteline/swiftui-introspect",
-      "state" : {
-        "revision" : "807f73ce09a9b9723f12385e592b4e0aaebd3336",
-        "version" : "1.3.0"
       }
     }
   ],
