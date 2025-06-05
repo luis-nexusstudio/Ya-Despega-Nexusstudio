@@ -63,12 +63,8 @@ struct LoginView: View {
                         }
                     )
 
+                    // 🎯 AQUÍ ES DONDE CAMBIAS - Actualizar el RegisterButton
                     RegisterButton(showRegister: $showRegisterView)
-                        .sheet(isPresented: $showRegisterView) {
-                            RegisterView(onRegisterSuccess: {
-                                showRegisterView = false
-                            })
-                        }
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 40)
@@ -76,6 +72,13 @@ struct LoginView: View {
             }
             .ignoresSafeArea(.keyboard)
         }
+        // 🚀 MOVER EL MODAL AQUÍ - Al nivel del BackgroundGeneralView
+        .fullScreenCover(isPresented: $showRegisterView) {
+            RegisterView(onRegisterSuccess: {
+                showRegisterView = false
+                // Opcional: Hacer login automático tras registro exitoso
+                // onLoginSuccess()
+            })
         .sheet(isPresented: $showForgotPassword) {
             ForgotPasswordView()
         }
@@ -209,7 +212,7 @@ struct SocialLoginButtons: View {
     }
 }
 
-// MARK: Botón de registro
+// MARK: Botón de registro - SIMPLIFICADO
 struct RegisterButton: View {
     @Binding var showRegister: Bool
 
