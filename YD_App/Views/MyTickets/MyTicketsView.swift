@@ -13,7 +13,6 @@ struct MyTicketsView: View {
 
     var body: some View {
         BackgroundGeneralView {
-            let _ = print(viewModel.currentAppError)
             if viewModel.isLoading {
                 loadingView
             } else if let appError = viewModel.currentAppError {

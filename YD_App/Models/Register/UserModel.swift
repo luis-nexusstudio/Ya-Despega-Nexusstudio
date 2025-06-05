@@ -11,6 +11,7 @@ import Foundation
 struct RegisterResponse: Codable {
     let message: String
     let user: RegisteredUser?
+    let requiresEmailVerification: Bool? // ✅ YA LO TIENES
 }
 
 struct RegisteredUser: Codable {
@@ -23,16 +24,43 @@ struct RegisteredUser: Codable {
     let rol_id: String
     let fecha_registro: FirestoreTimestamp?
     
+    // ✅ AGREGAR SOLO ESTOS CAMPOS MÍNIMOS para email verification
+    let email_verification_status: String?
+    let email_verified_at: String?
+    
     enum CodingKeys: String, CodingKey {
         case id, nombres, email, rol_id
         case apellido_paterno
         case apellido_materno
         case numero_celular
         case fecha_registro
+        // ✅ AGREGAR las nuevas keys
+        case email_verification_status
+        case email_verified_at
+    }
+    
+    // ✅ COMPUTED PROPERTIES útiles
+    var isEmailVerified: Bool {
+        return email_verification_status?.lowercased() == "verified"
+    }
+    
+    var needsEmailVerification: Bool {
+        return email_verification_status?.lowercased() == "pending"
+    }
+    
+    var verificationStatusText: String {
+        switch email_verification_status?.lowercased() {
+        case "verified":
+            return "Verificado"
+        case "pending":
+            return "Pendiente"
+        default:
+            return "Sin verificar"
+        }
     }
 }
 
-// MARK: - Firestore Timestamp Model
+// MARK: - Firestore Timestamp Model (sin cambios)
 struct FirestoreTimestamp: Codable {
     let _seconds: Int
     let _nanoseconds: Int
@@ -49,7 +77,7 @@ struct FirestoreTimestamp: Codable {
     }
 }
 
-// MARK: - Register Request Model
+// MARK: - Register Request Model (sin cambios)
 struct RegisterRequest: Codable {
     let email: String
     let password: String

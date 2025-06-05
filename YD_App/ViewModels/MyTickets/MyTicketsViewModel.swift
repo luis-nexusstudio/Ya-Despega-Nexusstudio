@@ -14,7 +14,7 @@ class MyTicketsViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var orders: [Order] = []
     @Published var isLoading: Bool = false
-    @Published var currentAppError: AppError?
+    @Published var currentAppError: AppErrorProtocol?
     @Published var isRetrying: Bool = false
     @Published var currentSortOption: OrderSortOption = .dateDesc
     

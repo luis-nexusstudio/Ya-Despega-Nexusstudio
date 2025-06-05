@@ -26,7 +26,6 @@ struct MainView: View {
                     .tabItem {
                         Label(
                           "Carrito",
-                          // 🔧 USAR EVENTVIEWMODEL PARA CALCULAR TOTAL
                           systemImage: totalTicketsInCart > 0
                             ? "cart.fill.badge.plus"
                             : "cart"

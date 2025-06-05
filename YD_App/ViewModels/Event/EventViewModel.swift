@@ -14,7 +14,7 @@ class EventViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var eventDetails: EventDetails?
     @Published var isLoading = false
-    @Published var currentAppError: AppError?
+    @Published var currentAppError: AppErrorProtocol?
     @Published var isRetrying = false
     
     // MARK: - Private Properties

@@ -7,29 +7,117 @@
 
 import Foundation
 import FirebaseAuth
+import SwiftUI
 
-enum CheckoutError: Error, LocalizedError {
-    case userNotAuthenticated
-    case invalidToken
-    case networkError(String)
+enum CheckoutError: AppErrorProtocol {
+    case urlInvalid
+    case requestFailed
+    case decodingError
+    case unauthorized
+    case notFound
+    case timeout
+    case retryExhausted
     case invalidResponse
-    case serverError(String)
+    case serverUnreachable
+    case serverError
+    case noInternet
+    case emailNotVerified
     
-    var errorDescription: String? {
+    
+    var userMessage: String {
         switch self {
-        case .userNotAuthenticated:
-            return "Usuario no autenticado"
-        case .invalidToken:
-            return "Token de autenticación inválido"
-        case .networkError(let message):
-            return "Error de red: \(message)"
+        case .urlInvalid:
+            return "Error de configuración. Contacta soporte."
+        case .requestFailed:
+            return "Error de conexión. Verifica tu internet."
+        case .decodingError:
+            return "Error procesando información."
+        case .unauthorized:
+            return "Tu sesión ha expirado. Inicia sesión nuevamente."
+        case .notFound:
+            return "La información solicitada no fue encontrada."
+        case .timeout:
+            return "La operación tardó demasiado. Intenta nuevamente."
+        case .retryExhausted:
+            return "No se pudo obtener la información tras varios intentos."
         case .invalidResponse:
-            return "Respuesta del servidor inválida"
-        case .serverError(let message):
-            return "Error del servidor: \(message)"
+            return "Respuesta inválida del servidor."
+        case .serverUnreachable:
+            return "No se pudo conectar al servidor. Intenta más tarde."
+        case .serverError:
+            return "Error del servidor. Intenta nuevamente en unos minutos."
+        case .noInternet:
+            return "Sin conexión a internet. Verifica tu conexión e intenta nuevamente."
+        case .emailNotVerified:
+            return "Verifica tu correo electrónico para continuar."
+        }
+        
+    }
+    
+    var errorCode: String {
+        switch self {
+        case .urlInvalid: return "CHE_001"
+        case .requestFailed: return "CHE_002"
+        case .decodingError: return "CHE_003"
+        case .unauthorized: return "CHE_004"
+        case .notFound: return "CHE_005"
+        case .timeout: return "CHE_006"
+        case .retryExhausted: return "CHE_007"
+        case .invalidResponse: return "CHE_008"
+        case .serverUnreachable: return "CHE_009"
+        case .serverError: return "CHE_010"
+        case .noInternet: return "CHE_011"
+        case .emailNotVerified: return "CHE_012"
         }
     }
+    
+    var shouldRetry: Bool {
+        switch self {
+        case .urlInvalid, .decodingError, .unauthorized, .notFound, .retryExhausted, .invalidResponse:
+            return false
+        case .requestFailed, .timeout, .serverUnreachable, .serverError, .noInternet, .emailNotVerified:
+            return true
+        }
+    }
+
+    
+    var icon: String {
+        switch self {
+        case .noInternet:
+            return "wifi.slash"
+        case .serverUnreachable:
+            return "antenna.radiowaves.left.and.right"
+        case .serverError:
+            return "exclamationmark.icloud"
+        case .unauthorized:
+            return "lock.shield"
+        case .notFound:
+            return "magnifyingglass.circle"
+        case .timeout:
+            return "clock.badge.exclamationmark"
+        default: return "exclamationmark.circle"
+        }
+    }
+    
+    var iconColor: Color {
+        switch self {
+        case .noInternet, .serverUnreachable:
+            return .red
+        case .serverError, .timeout:
+            return .orange
+        case .unauthorized:
+            return .yellow
+        case .notFound:
+            return .gray
+        default: return .blue
+        }
+    }
+    
+    var logMessage: String {
+        return "[\(errorCode)] Order Error: \(userMessage)"
+    }
 }
+
 
 struct CheckoutResponse {
     let url: URL
@@ -45,18 +133,18 @@ class CheckoutService {
         completion: @escaping (Result<CheckoutResponse, CheckoutError>) -> Void
     ) {
         guard let user = Auth.auth().currentUser else {
-            completion(.failure(.userNotAuthenticated))
+            completion(.failure(.unauthorized))
             return
         }
 
         user.getIDToken { idToken, error in
-            if let error = error {
-                completion(.failure(.invalidToken))
+            if error != nil {
+                completion(.failure(.unauthorized))
                 return
             }
             
             guard let idToken = idToken else {
-                completion(.failure(.invalidToken))
+                completion(.failure(.unauthorized))
                 return
             }
 
@@ -98,7 +186,7 @@ class CheckoutService {
             }
 
             guard let url = URL(string: "\(baseURL)/create-preference") else {
-                completion(.failure(.networkError("URL inválida")))
+                completion(.failure(.serverError))
                 return
             }
 
@@ -110,8 +198,8 @@ class CheckoutService {
 
             URLSession.shared.dataTask(with: request) { data, response, error in
                 DispatchQueue.main.async {
-                    if let error = error {
-                        completion(.failure(.networkError(error.localizedDescription)))
+                    if error != nil {
+                        completion(.failure(.serverError))
                         return
                     }
 
@@ -126,8 +214,21 @@ class CheckoutService {
                     }
 
                     if httpResponse.statusCode >= 400 {
-                        let errorMessage = String(data: data, encoding: .utf8) ?? "Error desconocido"
-                        completion(.failure(.serverError(errorMessage)))
+                        _ = String(data: data, encoding: .utf8) ?? "Error desconocido"
+                        
+                        // 🔐 MANEJAR ERROR DE VERIFICACIÓN ESPECÍFICAMENTE
+                        if httpResponse.statusCode == 403 {
+                            // Intentar parsear como error de verificación
+                            print("ENTRO AL ERROR DE VALIDAR")
+                            if let jsonData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                               let verificationRequired = jsonData["verification_required"] as? Bool,
+                                verificationRequired {
+                                    completion(.failure(.emailNotVerified))
+                                    return
+                                }
+                            }
+                                                
+                        completion(.failure(.serverError))
                         return
                     }
 

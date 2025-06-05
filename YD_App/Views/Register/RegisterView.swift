@@ -423,7 +423,7 @@ struct ModernSecureField: View {
             if !text.isEmpty {
                 VStack(spacing: 8) {
                     PasswordStrengthView(password: text, viewModel: viewModel)
-                    PasswordRequirementsView(password: text, viewModel: viewModel)
+                    PasswordRequirementsView(password: text)
                 }
             }
         }
@@ -433,18 +433,17 @@ struct ModernSecureField: View {
 // MARK: - Password Requirements View
 struct PasswordRequirementsView: View {
     let password: String
-    let viewModel: RegisterViewModel
     
     private var meetsLength: Bool {
         password.count >= 6
     }
     
     private var hasSpecialChar: Bool {
-        password.rangeOfCharacter(from: CharacterSet(charactersIn: "!@#$%^&*()_+-=[]{}|;:,.<>?")) != nil
+        UserDataValidator.hasSpecialCharacter(password)
     }
-    
+        
     private var hasUppercase: Bool {
-        password.rangeOfCharacter(from: .uppercaseLetters) != nil
+        UserDataValidator.hasUppercaseLetter(password)
     }
     
     var body: some View {
@@ -493,7 +492,7 @@ struct PasswordStrengthView: View {
     let viewModel: RegisterViewModel
     
     private var strength: PasswordStrength {
-        PasswordStrength.evaluate(password, viewModel: viewModel)
+        UserDataValidator.validatePasswordRealTime(password)
     }
     
     var body: some View {
@@ -511,71 +510,6 @@ struct PasswordStrengthView: View {
             ProgressView(value: strength.progress, total: 1.0)
                 .progressViewStyle(LinearProgressViewStyle(tint: strength.color))
                 .frame(height: 2)
-        }
-    }
-}
-
-// MARK: - Password Strength Enum
-enum PasswordStrength {
-    case weak, fair, good, strong
-    
-    var description: String {
-        switch self {
-        case .weak: return "Débil"
-        case .fair: return "Regular"
-        case .good: return "Buena"
-        case .strong: return "Fuerte"
-        }
-    }
-    
-    var color: Color {
-        switch self {
-        case .weak: return .red
-        case .fair: return .orange
-        case .good: return .yellow
-        case .strong: return .green
-        }
-    }
-    
-    var progress: Double {
-        switch self {
-        case .weak: return 0.25
-        case .fair: return 0.5
-        case .good: return 0.75
-        case .strong: return 1.0
-        }
-    }
-    
-    static func evaluate(_ password: String, viewModel: RegisterViewModel) -> PasswordStrength {
-        var score = 0
-        
-        // Longitud mínima
-        if password.count >= 6 { score += 1 }
-        if password.count >= 8 { score += 1 }
-        
-        // Mayúsculas
-        if password.rangeOfCharacter(from: .uppercaseLetters) != nil { score += 1 }
-        
-        // Números
-        if password.rangeOfCharacter(from: .decimalDigits) != nil { score += 1 }
-        
-        // Caracteres especiales (REQUERIDO para ser válido)
-        let hasSpecialChar = password.rangeOfCharacter(from: CharacterSet(charactersIn: "!@#$%^&*()_+-=[]{}|;:,.<>?")) != nil
-        if hasSpecialChar { score += 1 }
-        
-        // Mayúscula requerida también
-        let hasUppercase = password.rangeOfCharacter(from: .uppercaseLetters) != nil
-        
-        // Si no tiene carácter especial O mayúscula, máximo puede ser "weak"
-        if (!hasSpecialChar || !hasUppercase) && password.count >= 6 {
-            return .weak
-        }
-        
-        switch score {
-        case 0...2: return .weak
-        case 3: return .fair
-        case 4: return .good
-        default: return .strong
         }
     }
 }
@@ -607,11 +541,11 @@ struct ErrorMessageView: View {
 // MARK: - Register Feedback Overlay
 struct RegisterFeedbackOverlay: View {
     let state: RegisterState
-    let error: AppError?
+    let error: AppErrorProtocol?
     
     var body: some View {
         ZStack {
-            Color.black.opacity(0.7)
+            Color.white.opacity(0.5)
                 .ignoresSafeArea()
             
             switch state {
@@ -635,7 +569,7 @@ struct RegisterFeedbackOverlay: View {
             
             Text("Registrando usuario...")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(Color("SecondaryColor"))
         }
         .padding(40)
         .background(
@@ -645,34 +579,39 @@ struct RegisterFeedbackOverlay: View {
     }
     
     private var successView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
-            
-            VStack(spacing: 8) {
-                Text("¡Cuenta creada!")
-                    .font(.title2.bold())
-                    .foregroundColor(.white)
+            VStack(spacing: 20) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.green)
                 
-                Text("Bienvenido a la comunidad")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.8))
+                VStack(spacing: 8) {
+                    Text("¡Cuenta creada!")
+                        .font(.title2.bold())
+                        .foregroundColor(Color("SecondaryColor"))
+
+                    Text("Te hemos enviado un correo de verificación")
+                        .font(.subheadline)
+                        .foregroundColor(Color("SecondaryColor").opacity(0.9))
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Revisa tu bandeja de entrada y verifica tu email para poder realizar compras")
+                        .font(.caption)
+                        .foregroundColor(Color("SecondaryColor").opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                }
+            }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+            )
+            .scaleEffect(0.8)
+            .onAppear {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                }
             }
         }
-        .padding(40)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.ultraThinMaterial)
-        )
-        .scaleEffect(0.8)
-        .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
-                // Animation will be handled by the parent
-            }
-        }
-    }
-    
     private var errorView: some View {
         VStack(spacing: 20) {
             Image(systemName: "xmark.circle.fill")
@@ -682,11 +621,11 @@ struct RegisterFeedbackOverlay: View {
             VStack(spacing: 8) {
                 Text("Error al registrar")
                     .font(.title2.bold())
-                    .foregroundColor(.white)
-                
+                    .foregroundColor(Color("SecondaryColor"))
+
                 Text(error?.localizedDescription ?? "Inténtalo nuevamente")
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(Color("SecondaryColor").opacity(0.9))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
             }

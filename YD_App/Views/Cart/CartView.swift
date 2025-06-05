@@ -25,18 +25,25 @@ struct CartView: View {
 
     var body: some View {
         BackgroundGeneralView {
-            let _ = print(eventViewModel.currentAppError)
-
             if eventViewModel.isLoading {
                 loadingView
-            } else if let appError = eventViewModel.currentAppError ?? (cartViewModel.checkoutError.map { AppError.unknown($0) }) {
+            } else if let appError = eventViewModel.currentAppError ?? cartViewModel.currentAppError {
                 StandardErrorView(
                     error: appError,
                     isRetrying: eventViewModel.isRetrying,
                     onRetry: {
-                        print("🔁 [CartView] Retry tapped")
-                        eventViewModel.retryLoad()
-                        cartViewModel.checkoutError = nil
+                        print("🔁 [CartView] Retry tapped - Error: \(appError.errorCode)")
+                                    
+                        // 🔐 SI ES ERROR DE EMAIL → Solo limpiar el error, NO recargar evento
+                        if appError.errorCode == "CHE_012" {
+                            print("📧 [CartView] Email verification completed - clearing error only")
+                            cartViewModel.currentAppError = nil
+                        } else {
+                            // ✅ OTROS ERRORES → Sí hacer retry del evento
+                            print("🔄 [CartView] Network/Data error - retrying event load")
+                            eventViewModel.retryLoad()
+                            cartViewModel.currentAppError = nil
+                        }
                     }
                 )
 
@@ -78,30 +85,43 @@ struct CartView: View {
                         .padding(.horizontal, 24)
                         .padding(.top, 60)
                     }
-
-                    if showThankYou, let order = lastOrder {
-                        Color.clear
-                            .opacity(0.2)
-                            .ignoresSafeArea(.all)
-                            .zIndex(999)
-                            .overlay(
-                                ConfirmationPopup(order: order) {
-                                    selectedTab = 2
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            showThankYou = false
-                                        }
-                                    }
-                                }
-                                .transition(.asymmetric(
-                                    insertion: .scale(scale: 0.8).combined(with: .opacity),
-                                    removal: .scale(scale: 0.9).combined(with: .opacity)
-                                ))
-                                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: showThankYou)
-                            )
-                    }
                 }
             }
+            
+            // 🔧 MOVER EL POPUP FUERA DEL ZSTACK CONDICIONAL
+            // Ahora el popup se renderiza independientemente del estado del carrito
+            if showThankYou, let order = lastOrder {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea(.all)
+                    .zIndex(1000) // Asegurar que esté por encima de todo
+                    .overlay(
+                        ConfirmationPopup(order: order) {
+                            print("🔄 [CartView] Cerrando popup y navegando a tickets")
+                            selectedTab = 2
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showThankYou = false
+                                    lastOrder = nil // 🆕 Limpiar la orden también
+                                }
+                            }
+                        }
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.8).combined(with: .opacity),
+                            removal: .scale(scale: 0.9).combined(with: .opacity)
+                        ))
+                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: showThankYou)
+                    )
+            }
+        }
+        // 🔧 AGREGAR DEBUGGING PARA EL ESTADO DEL POPUP
+        .onChange(of: showThankYou) { newValue in
+            print("🎭 [CartView] showThankYou cambió a: \(newValue)")
+            if newValue {
+                print("🎭 [CartView] lastOrder: \(lastOrder?.id ?? "nil")")
+            }
+        }
+        .onChange(of: lastOrder) { newOrder in
+            print("🎭 [CartView] lastOrder cambió a: \(newOrder?.id ?? "nil")")
         }
     }
 
@@ -202,17 +222,17 @@ struct DetailsView: View {
 
 struct OrderSummaryView: View {
     @EnvironmentObject var cartViewModel: CartViewModel
-    @EnvironmentObject var eventViewModel: EventViewModel  // ← NUEVO: Para datos de tickets
+    @EnvironmentObject var eventViewModel: EventViewModel
     @State private var isExpanded = true
     @Binding var selectedTab: Int
     @State private var showRedirecting = false
     @State private var safariURL: URL?
     
-    // 👈 Estos estados se mueven al CartView
+    // Estados para el popup
     @Binding var lastOrder: Order?
     @Binding var showThankYou: Bool
     
-    // 🔧 COMPUTED PROPERTIES USANDO EVENTVIEWMODEL
+    // Computed Properties
     private var totalTickets: Int {
         cartViewModel.totalTickets(for: eventViewModel.eventDetails)
     }
@@ -297,7 +317,6 @@ struct OrderSummaryView: View {
                         Spacer()
 
                         Button(action: {
-                            // 🔧 VERIFICAR QUE TENEMOS DATOS DEL EVENTO
                             guard let eventDetails = eventViewModel.eventDetails else {
                                 print("❌ [OrderSummary] No hay datos del evento")
                                 return
@@ -328,7 +347,7 @@ struct OrderSummaryView: View {
                             .foregroundColor(.white)
                             .clipShape(Capsule())
                         }
-                        .disabled(eventViewModel.eventDetails == nil) // ← Deshabilitar si no hay datos
+                        .disabled(eventViewModel.eventDetails == nil)
                         .opacity(eventViewModel.eventDetails == nil ? 0.6 : 1.0)
                     }
                     .padding()
@@ -353,62 +372,92 @@ struct OrderSummaryView: View {
         }
         .fullScreenCover(item: $safariURL) { url in
             SafariView(url: url) {
-                guard let ref = cartViewModel.latestExternalReference else {
-                    self.selectedTab = 2
-                    return
-                }
-                
-                OrderService.fetchOrderByExternalReferenceWithRetry(ref: ref) { result in
-                    DispatchQueue.main.async {
-                        switch result {
-                        case .success(let order):
-                            let status = order.status.lowercased()
-                            
-                            switch status {
-                            case "approved":
-                                // ✅ Pago exitoso
-                                print("✅ Pago aprobado - Mostrando popup")
-                                self.lastOrder = order
-                                cartViewModel.clearCart()
-                                self.showThankYou = true
-                                
-                                NotificationCenter.default.post(name: NSNotification.Name("RefreshTickets"), object: nil)
-                                print("📤 Notificación RefreshTickets enviada (approved)")
-                                
-                            case "pending":
-                                // ✅ Pago pendiente (OXXO, SPEI, etc.)
-                                print("✅ Pago pendiente - Mostrando popup")
-                                self.lastOrder = order
-                                cartViewModel.clearCart()
-                                self.showThankYou = true
-                                
-                                NotificationCenter.default.post(name: NSNotification.Name("RefreshTickets"), object: nil)
-                                print("📤 Notificación RefreshTickets enviada (pending)")
-                                
-                            case "created":
-                                // 🚫 Usuario canceló sin pagar
-                                print("🚫 Usuario canceló - Status: created")
-                                // NO hacer nada, mantener carrito
-                                
-                            case "rejected", "cancelled", "failure":
-                                // ⚠️ Pago falló
-                                print("⚠️ Pago falló - Status: \(status)")
-                                self.lastOrder = order
-                                self.showThankYou = true
-                                
-                            default:
-                                // ❓ Estado desconocido
-                                print("❓ Estado desconocido: \(status)")
-                                self.selectedTab = 2
-                            }
-                            
-                        case .failure:
-                            self.selectedTab = 2
-                        }
-                    }
-                }
+                handleSafariDismiss()
             }
             .ignoresSafeArea()
+        }
+    }
+    
+    // 🔧 EXTRAER LA LÓGICA DE SAFARI A UNA FUNCIÓN SEPARADA
+    private func handleSafariDismiss() {
+        print("🎭 [OrderSummary] Safari cerrado, procesando resultado...")
+        
+        guard let ref = cartViewModel.latestExternalReference else {
+            print("❌ [OrderSummary] No hay external reference")
+            self.selectedTab = 2
+            return
+        }
+        
+        print("🔍 [OrderSummary] Buscando orden con ref: \(ref)")
+        
+        OrderService.fetchOrderByExternalReferenceWithRetry(ref: ref) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let order):
+                    print("✅ [OrderSummary] Orden obtenida: \(order.id), status: \(order.status)")
+                    
+                    let status = order.status.lowercased()
+                    
+                    switch status {
+                    case "approved":
+                        print("✅ [OrderSummary] Pago aprobado - Configurando popup")
+                        showSuccessPopup(order: order)
+                        
+                    case "pending":
+                        print("✅ [OrderSummary] Pago pendiente - Configurando popup")
+                        showSuccessPopup(order: order)
+                        
+                    case "created":
+                        print("🚫 [OrderSummary] Usuario canceló - Status: created")
+                        // NO hacer nada, mantener carrito
+                        
+                    case "rejected", "cancelled", "failure":
+                        print("⚠️ [OrderSummary] Pago falló - Status: \(status)")
+                        showFailurePopup(order: order)
+                        
+                    default:
+                        print("❓ [OrderSummary] Estado desconocido: \(status)")
+                        self.selectedTab = 2
+                    }
+                    
+                case .failure(let error):
+                    print("❌ [OrderSummary] Error obteniendo orden: \(error)")
+                    self.selectedTab = 2
+                }
+            }
+        }
+    }
+    
+    // 🔧 FUNCIONES HELPER PARA MOSTRAR POPUP
+    private func showSuccessPopup(order: Order) {
+        print("🎭 [OrderSummary] Mostrando popup de éxito para orden: \(order.id)")
+        
+        // Configurar orden y mostrar popup
+        self.lastOrder = order
+        
+        // Limpiar carrito
+        cartViewModel.clearCart()
+        
+        // Enviar notificación para refrescar tickets
+        NotificationCenter.default.post(name: NSNotification.Name("RefreshTickets"), object: nil)
+        print("📤 [OrderSummary] Notificación RefreshTickets enviada (\(order.status))")
+        
+        // Mostrar popup con un pequeño delay para asegurar que se configure correctamente
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            print("🎭 [OrderSummary] Activando showThankYou")
+            self.showThankYou = true
+        }
+    }
+    
+    private func showFailurePopup(order: Order) {
+        print("🎭 [OrderSummary] Mostrando popup de fallo para orden: \(order.id)")
+        
+        // Solo mostrar popup, NO limpiar carrito para fallos
+        self.lastOrder = order
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            print("🎭 [OrderSummary] Activando showThankYou para fallo")
+            self.showThankYou = true
         }
     }
 }
@@ -522,7 +571,10 @@ struct ConfirmationPopup: View {
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 4)
 
-                            Button(action: onClose) {
+                            Button(action: {
+                                print("🎭 [ConfirmationPopup] Botón presionado")
+                                onClose()
+                            }) {
                                 Text(buttonText)
                                     .font(.headline)
                                     .fontWeight(.semibold)
@@ -547,6 +599,9 @@ struct ConfirmationPopup: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+        .onAppear {
+            print("🎭 [ConfirmationPopup] Popup apareció para orden: \(order.id)")
         }
     }
 }

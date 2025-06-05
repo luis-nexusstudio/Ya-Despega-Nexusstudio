@@ -1,15 +1,22 @@
 //
-//  OrderService.swift
+//  Validation.swift
 //  YD_App
 //
-//  Created by Luis Melendez on 25/01/25.
+//  Created by Luis Melendez on 02/06/25.
+//
+
+//
+//  VerificationService.swift
+//  YD_App
+//
+//  Created by Luis Melendez on 02/06/25.
 //
 
 import Foundation
 import FirebaseAuth
 import SwiftUICore
 
-enum OrderError: AppErrorProtocol {
+enum VerificationError: AppErrorProtocol {
     case urlInvalid
     case requestFailed
     case decodingError
@@ -29,7 +36,7 @@ enum OrderError: AppErrorProtocol {
         case .requestFailed:
             return "Error de conexión. Verifica tu internet."
         case .decodingError:
-            return "Error procesando información de órdenes."
+            return "Error procesando información."
         case .unauthorized:
             return "Tu sesión ha expirado. Inicia sesión nuevamente."
         case .notFound:
@@ -52,17 +59,17 @@ enum OrderError: AppErrorProtocol {
     
     var errorCode: String {
         switch self {
-        case .urlInvalid: return "ORD_001"
-        case .requestFailed: return "ORD_002"
-        case .decodingError: return "ORD_003"
-        case .unauthorized: return "ORD_004"
-        case .notFound: return "ORD_005"
-        case .timeout: return "ORD_006"
-        case .retryExhausted: return "ORD_007"
-        case .invalidResponse: return "ORD_008"
-        case .serverUnreachable: return "ORD_009"
-        case .serverError: return "ORD_010"
-        case .noInternet: return "ORD_011"
+        case .urlInvalid: return "VER_001"
+        case .requestFailed: return "VER_002"
+        case .decodingError: return "VER_003"
+        case .unauthorized: return "VER_004"
+        case .notFound: return "VER_005"
+        case .timeout: return "VER_006"
+        case .retryExhausted: return "OVER_007"
+        case .invalidResponse: return "VER_008"
+        case .serverUnreachable: return "VER_009"
+        case .serverError: return "VER_010"
+        case .noInternet: return "VER_011"
         }
     }
     
@@ -112,32 +119,42 @@ enum OrderError: AppErrorProtocol {
         return "[\(errorCode)] Order Error: \(userMessage)"
     }
 }
-// MARK: - OrderService
-class OrderService {
+
+
+// MARK: - VerificationService
+class VerificationService {
     
     // MARK: - Constants
-    static let baseURL = "http://localhost:4000/api/orders"
-    private static let maxRetries = 5
-    private static let retryDelay: TimeInterval = 2.0
+    static let baseURL = "http://localhost:4000/api"
     private static let timeoutInterval: TimeInterval = 30.0
     
     // MARK: - Public Methods
     
-    /// Obtener todas las órdenes del usuario autenticado
-    static func fetchAllOrders(completion: @escaping (Result<[Order], OrderError>) -> Void) {
-        guard let url = URL(string: baseURL) else {
+    /// Obtener estado detallado de verificación
+    static func getVerificationStatus(completion: @escaping (Result<VerificationData, VerificationError>) -> Void) {
+        guard let url = URL(string: "\(baseURL)/verification/status") else {
             completion(.failure(.urlInvalid))
             return
         }
-
-        performAuthenticatedRequest(url: url) { result in
+        
+        print("🔐 [VerificationService] Obteniendo estado de verificación...")
+        
+        performAuthenticatedRequest(url: url, method: "GET") { result in
             switch result {
             case .success(let data):
                 do {
-                    let orders = try JSONDecoder().decode([Order].self, from: data)
-                    completion(.success(orders))
+                    let response = try JSONDecoder().decode(VerificationStatusResponse.self, from: data)
+                    
+                    if response.success, let verificationData = response.data {
+                        print("✅ [VerificationService] Estado obtenido - Verificado: \(verificationData.verified)")
+                        completion(.success(verificationData))
+                    } else {
+                        let errorMessage = response.error ?? "Error desconocido"
+                        print("❌ [VerificationService] Error del servidor: \(errorMessage)")
+                        completion(.failure(.serverError))
+                    }
                 } catch {
-                    print("❌ Error al decodificar órdenes:", error)
+                    print("❌ [VerificationService] Error decodificando verificación:", error)
                     if let jsonString = String(data: data, encoding: .utf8) {
                         print("📄 JSON recibido:", jsonString)
                     }
@@ -149,74 +166,31 @@ class OrderService {
         }
     }
     
-    /// Buscar orden por external_reference con retry logic
-    static func fetchOrderByExternalReferenceWithRetry(
-        ref: String,
-        completion: @escaping (Result<Order, OrderError>) -> Void
-    ) {
-        print("🔍 Iniciando búsqueda de orden con retry logic para ref: \(ref)")
-        
-        func attemptFetch(attempt: Int) {
-            print("🔄 Intento \(attempt)/\(maxRetries)")
-            
-            fetchOrderByExternalReference(ref: ref) { result in
-                switch result {
-                case .success(let order):
-                    // ✅ Orden encontrada
-                    if order.isProcessed {
-                        print("✅ Orden confirmada: \(order.status)")
-                        completion(.success(order))
-                        return
-                    } else if attempt < maxRetries {
-                        print("⏳ Orden sin procesar, reintentando en \(retryDelay)s...")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) {
-                            attemptFetch(attempt: attempt + 1)
-                        }
-                    } else {
-                        print("⚠️ Orden encontrada pero sin información de pago completa")
-                        completion(.success(order))
-                    }
-                    
-                case .failure(.notFound):
-                    if attempt < maxRetries {
-                        print("🔍 Orden no encontrada, reintentando en \(retryDelay)s...")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) {
-                            attemptFetch(attempt: attempt + 1)
-                        }
-                    } else {
-                        print("❌ Orden no encontrada después de \(maxRetries) intentos")
-                        completion(.failure(.retryExhausted))
-                    }
-                    
-                case .failure(let error):
-                    print("❌ Error no recuperable: \(error)")
-                    completion(.failure(error))
-                }
-            }
-        }
-        
-        // Iniciar el primer intento
-        attemptFetch(attempt: 1)
-    }
-    
-    /// Buscar orden individual por external_reference (sin retry)
-    static func fetchOrderByExternalReference(
-        ref: String,
-        completion: @escaping (Result<Order, OrderError>) -> Void
-    ) {
-        guard let url = URL(string: "\(baseURL)/ref/\(ref)") else {
+    /// Verificar si el usuario puede realizar compras
+    static func canPurchase(completion: @escaping (Result<Bool, VerificationError>) -> Void) {
+        guard let url = URL(string: "\(baseURL)/verification/can-purchase") else {
             completion(.failure(.urlInvalid))
             return
         }
-
-        performAuthenticatedRequest(url: url) { result in
+        
+        print("🛒 [VerificationService] Verificando permisos de compra...")
+        
+        performAuthenticatedRequest(url: url, method: "GET") { result in
             switch result {
             case .success(let data):
                 do {
-                    let order = try JSONDecoder().decode(Order.self, from: data)
-                    completion(.success(order))
+                    let response = try JSONDecoder().decode(CanPurchaseResponse.self, from: data)
+                    
+                    if response.success {
+                        print("✅ [VerificationService] Puede comprar: \(response.canPurchase)")
+                        completion(.success(response.canPurchase))
+                    } else {
+                        let errorMessage = response.error ?? "Error verificando permisos"
+                        print("❌ [VerificationService] Error verificando permisos: \(errorMessage)")
+                        completion(.failure(.serverError))
+                    }
                 } catch {
-                    print("❌ Error al decodificar orden:", error)
+                    print("❌ [VerificationService] Error decodificando can-purchase:", error)
                     if let jsonString = String(data: data, encoding: .utf8) {
                         print("📄 JSON recibido:", jsonString)
                     }
@@ -224,6 +198,18 @@ class OrderService {
                 }
             case .failure(let error):
                 completion(.failure(error))
+            }
+        }
+    }
+    
+    /// Verificación rápida y silenciosa (sin logs detallados)
+    static func quickVerificationCheck(completion: @escaping (Bool) -> Void) {
+        canPurchase { result in
+            switch result {
+            case .success(let canPurchase):
+                completion(canPurchase)
+            case .failure:
+                completion(false)
             }
         }
     }
@@ -233,33 +219,35 @@ class OrderService {
     /// Realizar request autenticado con Firebase Auth
     private static func performAuthenticatedRequest(
         url: URL,
-        completion: @escaping (Result<Data, OrderError>) -> Void
+        method: String,
+        completion: @escaping (Result<Data, VerificationError>) -> Void
     ) {
         guard let user = Auth.auth().currentUser else {
+            print("❌ [VerificationService] Usuario no autenticado")
             completion(.failure(.unauthorized))
             return
         }
 
         user.getIDToken { token, error in
             guard let token = token, error == nil else {
-                print("❌ Error obteniendo token:", error?.localizedDescription ?? "Unknown")
+                print("❌ [VerificationService] Error obteniendo token:", error?.localizedDescription ?? "Unknown")
                 completion(.failure(.unauthorized))
                 return
             }
 
             var request = URLRequest(url: url)
-            request.httpMethod = "GET"
+            request.httpMethod = method  // 🔥 AHORA ES CONFIGURABLE
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.timeoutInterval = timeoutInterval
 
-            print("🌐 Realizando request a: \(url.absoluteString)")
+            print("🌐 [VerificationService] \(method) Request a: \(url.absoluteString)")
 
             URLSession.shared.dataTask(with: request) { data, response, error in
                 DispatchQueue.main.async {
                     // Manejar errores de red específicos
                     if let error = error {
-                        print("❌ Error de red:", error.localizedDescription)
+                        print("❌ [VerificationService] Error de red:", error.localizedDescription)
                         let nsError = error as NSError
                         
                         switch nsError.code {
@@ -279,40 +267,50 @@ class OrderService {
 
                     // Validar respuesta HTTP
                     guard let httpResponse = response as? HTTPURLResponse else {
-                        print("❌ Respuesta HTTP inválida")
-                        completion(.failure(.invalidResponse))
+                        print("❌ [VerificationService] Respuesta HTTP inválida")
+                        completion(.failure(.requestFailed))
                         return
                     }
 
-                    print("📡 Status code: \(httpResponse.statusCode)")
+                    print("📡 [VerificationService] Status code: \(httpResponse.statusCode)")
 
                     // Manejar códigos de estado HTTP específicos
                     switch httpResponse.statusCode {
                     case 200...299:
                         guard let data = data else {
-                            completion(.failure(.invalidResponse))
+                            completion(.failure(.requestFailed))
                             return
                         }
                         completion(.success(data))
                         
                     case 401:
-                        print("❌ No autorizado - Token inválido o expirado")
+                        print("❌ [VerificationService] No autorizado - Token inválido o expirado")
                         completion(.failure(.unauthorized))
                         
+                    case 403:
+                        print("⚠️ [VerificationService] Acceso prohibido - Email no verificado")
+                        // Devolver los datos para que el caller pueda manejar la respuesta
+                        if let data = data {
+                            completion(.success(data))
+                        } else {
+                            completion(.failure(.unauthorized))
+                        }
+                        
                     case 404:
-                        print("❌ Recurso no encontrado")
-                        completion(.failure(.notFound))
+                        print("❌ [VerificationService] Endpoint no encontrado")
+                        completion(.failure(.notFound))  // 🔥 CAMBIADO PARA SER MÁS ESPECÍFICO
                         
                     case 500...599:
-                        print("❌ Error del servidor: \(httpResponse.statusCode)")
+                        print("❌ [VerificationService] Error del servidor: \(httpResponse.statusCode)")
                         completion(.failure(.serverError))
                         
                     default:
-                        print("❌ Error HTTP: \(httpResponse.statusCode)")
+                        print("❌ [VerificationService] Error HTTP inesperado: \(httpResponse.statusCode)")
                         completion(.failure(.requestFailed))
                     }
                 }
             }.resume()
         }
     }
+    
 }

@@ -8,109 +8,108 @@
 
 import SwiftUI
 
-// MARK: - Error Type Extension
-enum AppError: Error, LocalizedError {
-    case noInternet
-    case serverUnreachable  // 🚀 nuevo
-    case serverError
-    case unauthorized
-    case notFound
-    case timeout
-    case unknown(String)
+// MARK: - Standard Error View
+struct StandardErrorView: View {
+    let error: AppErrorProtocol
+    var isRetrying: Bool = false
+    let onRetry: () -> Void
     
-    var errorDescription: String? {
-        switch self {
-        case .noInternet:
-            return "Error de conexión. Verifica tu internet."
-        case .serverUnreachable:
-            return "No se pudo conectar al servidor. Intenta más tarde."
-        case .serverError:
-            return "Error del servidor. Intenta más tarde."
-        case .unauthorized:
-            return "Sesión expirada. Inicia sesión nuevamente."
-        case .notFound:
-            return "No se encontró la información solicitada."
-        case .timeout:
-            return "Tiempo de espera agotado. Intenta nuevamente."
-        case .unknown(let message):
-            return message
+    var body: some View {
+        
+        if error.errorCode != "CHE_012"{
+            VStack(spacing: 20) {
+                Image(systemName: error.icon)
+                    .font(.system(size: 60))
+                    .foregroundColor(error.iconColor)
+                
+                Text(error.userMessage)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                
+                // 🆕 MOSTRAR CÓDIGO DE ERROR EN DEBUG
+                #if DEBUG
+                Text("Error: \(error.errorCode)")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+                #endif
+                
+                if error.shouldRetry { // ← NUEVA LÓGICA
+                    Button(action: onRetry) {
+                        HStack {
+                            if isRetrying {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.8)
+                            }
+                            Text(isRetrying ? "Reintentando..." : "Reintentar")
+                                .font(.headline)
+                        }
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(minWidth: 120)
+                        .background(Color("PrimaryColor"))
+                        .cornerRadius(12)
+                    }
+                    .disabled(isRetrying)
+                    .opacity(isRetrying ? 0.8 : 1)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }else{
+            EmailVerificationErrorView(onRetry: onRetry)
+
         }
-    }
-    
-    var icon: String {
-        switch self {
-        case .noInternet:
-            return "wifi.slash"
-        case .serverUnreachable:
-            return "antenna.radiowaves.left.and.right"
-        case .serverError:
-            return "exclamationmark.icloud"
-        case .unauthorized:
-            return "lock.shield"
-        case .notFound:
-            return "magnifyingglass.circle"
-        case .timeout:
-            return "clock.badge.exclamationmark"
-        case .unknown:
-            return "exclamationmark.triangle"
-        }
-    }
-    
-    var iconColor: Color {
-        switch self {
-        case .noInternet, .serverUnreachable:
-            return .red
-        case .serverError:
-            return .orange
-        case .unauthorized:
-            return .yellow
-        case .notFound:
-            return .gray
-        case .timeout:
-            return .orange
-        case .unknown:
-            return .orange
-        }
+        
+       
     }
 }
 
-// MARK: - Standard Error View
-struct StandardErrorView: View {
-    let error: AppError
+struct StandardErrorVerification: View {
+    let error: AppErrorProtocol
     var isRetrying: Bool = false
     let onRetry: () -> Void
 
-    
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: error.icon)
                 .font(.system(size: 60))
                 .foregroundColor(error.iconColor)
             
-            Text(error.errorDescription ?? "Error desconocido")
+            Text(error.userMessage)
                 .font(.headline)
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             
-            Button(action: onRetry) {
-                HStack {
-                    if isRetrying {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
+            // 🆕 MOSTRAR CÓDIGO DE ERROR EN DEBUG
+            #if DEBUG
+            Text("Error: \(error.errorCode)")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.6))
+            #endif
+            
+            if error.shouldRetry { // ← NUEVA LÓGICA
+                Button(action: onRetry) {
+                    HStack {
+                        if isRetrying {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                        }
+                        Text(isRetrying ? "Reintentando..." : "Reintentar")
+                            .font(.headline)
                     }
-                    Text(isRetrying ? "Reintentando..." : "Reintentar")
-                        .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(minWidth: 120)
+                    .background(Color("PrimaryColor"))
+                    .cornerRadius(12)
                 }
-                .foregroundColor(.white)
-                .padding()
-                .frame(minWidth: 120)
-                .background(Color("PrimaryColor"))
-                .cornerRadius(12)
+                .disabled(isRetrying)
+                .opacity(isRetrying ? 0.8 : 1)
             }
-            .disabled(isRetrying)
-            .opacity(isRetrying ? 0.8 : 1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -193,76 +192,34 @@ struct StandardLoadingView: View {
     }
 }
 
-// MARK: - Extension para convertir errores
 extension Error {
-    func toAppError() -> AppError {
-        
-        if let registerError = self as? RegisterError {
-            switch registerError {
-            case .emailAlreadyExists:
-                return .unknown("El correo ya está registrado")
-            case .weakPassword:
-                return .unknown("La contraseña debe tener al menos 6 caracteres")
-            case .invalidEmail:
-                return .unknown("Formato de correo inválido")
-            case .validationFailed(let message):
-                return .unknown(message)
-            case .noInternet:
-                return .noInternet
-            case .timeout:
-                return .timeout
-            case .serverUnreachable:
-                return .serverUnreachable
-            case .serverError:
-                return .serverError
-            default:
-                return .unknown(registerError.localizedDescription)
-            }
+    func toAppError() -> AppErrorProtocol {
+        // Si ya es un AppErrorProtocol, devolverlo
+        if let appError = self as? AppErrorProtocol {
+            return appError
         }
         
-        if let orderError = self as? OrderError {
-            switch orderError {
-            case .unauthorized:
-                return .unauthorized
-            case .notFound:
-                return .notFound
-            case .timeout:
-                return .timeout
-            case .noInternet:
-                return .noInternet
-            case .serverUnreachable:
-                return .serverUnreachable
-            case .serverError:
-                return .serverError
-            case .requestFailed:
-                return .serverUnreachable
-            default:
-                return .serverError
-            }
-        }
-        
+        // Convertir NSError a CommonAppError
         if let nsError = self as NSError? {
             switch nsError.code {
-            case NSURLErrorNotConnectedToInternet,
-                 NSURLErrorNetworkConnectionLost:
-                return .noInternet
-            case -1004:
-                return .serverUnreachable
-            case 1:
-                return .serverUnreachable
+            case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost:
+                return CommonAppError.noInternet
+            case NSURLErrorCannotConnectToHost, NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed:
+                return CommonAppError.serverUnreachable
             case NSURLErrorTimedOut:
-                return .timeout
+                return CommonAppError.timeout
             case 401:
-                return .unauthorized
+                return CommonAppError.unauthorized
             case 404:
-                return .notFound
+                return CommonAppError.notFound
             case 500...599:
-                return .serverError
+                return CommonAppError.serverError
             default:
-                return .unknown(nsError.localizedDescription)
+                return CommonAppError.unknown(nsError.localizedDescription)
             }
         }
-        return .unknown(self.localizedDescription)
+        
+        // Error genérico
+        return CommonAppError.unknown(self.localizedDescription)
     }
 }
-
