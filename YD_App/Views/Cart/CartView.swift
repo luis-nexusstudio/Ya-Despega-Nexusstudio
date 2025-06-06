@@ -62,9 +62,7 @@ struct CartView: View {
 
                             ForEach(ticketSections, id: \.type) { section in
                                 EditableOrderSection(
-                                    image: section.type == "GENERAL"
-                                        ? Image(systemName: "person.fill")
-                                        : Image(systemName: "star.fill"),
+                                    image: Image(eventViewModel.eventDetails?.tickets.first(where: { $0.descripcion == section.type })?.imageName ?? "placeholder"),
                                     title: section.type,
                                     date: eventViewModel.eventDetails?.fecha_inicio.date.formatDateRange(to: eventViewModel.eventDetails?.fecha_fin.date ?? Date()) ?? "",
                                     location: eventViewModel.eventDetails?.ubicacionNombre ?? "",
@@ -113,16 +111,6 @@ struct CartView: View {
                     )
             }
         }
-        // 🔧 AGREGAR DEBUGGING PARA EL ESTADO DEL POPUP
-        .onChange(of: showThankYou) { newValue in
-            print("🎭 [CartView] showThankYou cambió a: \(newValue)")
-            if newValue {
-                print("🎭 [CartView] lastOrder: \(lastOrder?.id ?? "nil")")
-            }
-        }
-        .onChange(of: lastOrder) { newOrder in
-            print("🎭 [CartView] lastOrder cambió a: \(newOrder?.id ?? "nil")")
-        }
     }
 
     private var ticketSections: [(type: String, binding: Binding<Int>)] {
@@ -132,7 +120,7 @@ struct CartView: View {
                 get: { cartViewModel.ticketCounts[ticket.id] ?? 0 },
                 set: { cartViewModel.ticketCounts[ticket.id] = $0 }
             )
-            return (ticket.descripcion.uppercased(), binding)
+            return (ticket.descripcion, binding)
         }
     }
 
@@ -165,7 +153,7 @@ struct EditableOrderSection: View {
             HStack(alignment: .top, spacing: 15) {
                 image
                     .resizable()
-                    .frame(width: 100, height: 100)
+                    .frame(width: 110, height: 110)
                     .cornerRadius(12)
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -197,7 +185,7 @@ struct EditableOrderSection: View {
             }
             .padding()
         }
-        .frame(height: 200)
+        .frame(height: 150)
     }
 }
 
@@ -291,7 +279,7 @@ struct OrderSummaryView: View {
                                     .foregroundColor(Color("MoneyGreen"))
                             }
                             HStack {
-                                Text("Cuota de servicio (4%)").foregroundColor(.secondary)
+                                Text("Cuota de servicio (6%)").foregroundColor(.secondary)
                                 Spacer()
                                 Text(serviceFeeAmount.formatted(.currency(code: "MXN")))
                                     .bold()

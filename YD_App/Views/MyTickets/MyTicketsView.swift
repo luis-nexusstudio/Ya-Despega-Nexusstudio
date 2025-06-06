@@ -284,7 +284,7 @@ struct OrderCardView: View {
             DetailRow(title: "Boletos:", value: "\(ticketCount)")
 
             // Medio de pago (solo el primero válido)
-            if let method = order.payment_attempts?.last?.method {
+            if (order.payment_attempts?.last?.method) != nil {
                 DetailRow(title: "Medio de pago:", value: order.paymentMethodDescription.capitalized)
             }
 
