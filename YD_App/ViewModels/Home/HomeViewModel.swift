@@ -8,17 +8,19 @@
 import SwiftUI
 import MapKit
 
-// MARK: - 3. HomeViewModel (SOLO responsable de datos de Home específicos)
+// MARK: - ✅ SOLUCIÓN INMEDIATA: Agregar completion
+
+@MainActor
 class HomeViewModel: ObservableObject {
     @Published var homeEventData: HomeEventData?
     @Published var isLoading = false
-    @Published var currentAppError: AppError?
-    @Published var isRetrying = false  // ✅ AGREGADO para indicar reintento
+    @Published var currentAppError: AppErrorProtocol?
+    @Published var isRetrying = false
     @Published var region: MKCoordinateRegion
     
     private let eventId: String
     
-    // MARK: - Computed Properties
+    // MARK: - Computed Properties (sin cambios)
     var hasData: Bool {
         homeEventData != nil
     }
@@ -44,7 +46,6 @@ class HomeViewModel: ObservableObject {
         homeEventData?.terminos ?? []
     }
     
-    // ✅ CORREGIDO: Ahora usa ubicacionNombre en lugar de ubicacion directamente
     var locationName: String {
         homeEventData?.ubicacionNombre ?? "Cargando ubicación..."
     }
@@ -60,7 +61,7 @@ class HomeViewModel: ObservableObject {
         fetchHomeEventData()
     }
     
-    // MARK: - Methods
+    // MARK: - ✅ SOLUCIÓN: Agregar el completion que faltaba
     func fetchHomeEventData() {
         guard !isLoading else { return }
         
@@ -69,23 +70,23 @@ class HomeViewModel: ObservableObject {
         
         print("🏠 [HomeViewModel] Cargando datos de Home para eventId: \(eventId)")
         
+        // ✅ AGREGAR el parámetro completion aquí:
         HomeService.getHomeEvent(eventId: eventId) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
+            // ✅ Como usas @MainActor, ya no necesitas DispatchQueue.main.async
+            guard let self = self else { return }
+            
+            self.isLoading = false
+            self.isRetrying = false
+            
+            switch result {
+            case .success(let data):
+                self.homeEventData = data
+                self.updateRegion(for: data.coordenadas)
+                print("✅ [HomeViewModel] Datos de Home cargados exitosamente")
                 
-                self.isLoading = false
-                self.isRetrying = false  // ✅ Resetear estado de reintento
-                
-                switch result {
-                case .success(let data):
-                    self.homeEventData = data
-                    self.updateRegion(for: data.coordenadas)
-                    print("✅ [HomeViewModel] Datos de Home cargados exitosamente")
-                    
-                case .failure(let error):
-                    self.handleError(error)  // ✅ Usar manejo centralizado
-                    print("❌ [HomeViewModel] Error cargando Home: \(error.localizedDescription)")
-                }
+            case .failure(let error):
+                self.handleError(error)
+                print("❌ [HomeViewModel] Error cargando Home: \(error.localizedDescription)")
             }
         }
     }
@@ -99,11 +100,12 @@ class HomeViewModel: ObservableObject {
         guard !isRetrying else { return }
         isRetrying = true
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.fetchHomeEventData()
+        // ✅ Como usas @MainActor, puedes simplificar esto:
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            fetchHomeEventData()
         }
     }
-
     
     private func updateRegion(for coordinates: Coordenadas) {
         let coordinate = CLLocationCoordinate2D(
@@ -122,6 +124,4 @@ class HomeViewModel: ObservableObject {
     private func handleError(_ error: Error) {
         self.currentAppError = error.toAppError()
     }
-
-
 }

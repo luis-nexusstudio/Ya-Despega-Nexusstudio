@@ -7,16 +7,15 @@
 
 import Foundation
 import FirebaseAuth
+import SwiftUICore
 
 // MARK: - Error Types
-enum RegisterError: Error, LocalizedError {
+enum RegisterError: AppErrorProtocol {
     case urlInvalid
     case requestFailed
     case decodingError
     case encodingError
     case emailAlreadyExists
-    case weakPassword
-    case invalidEmail
     case timeout
     case serverUnreachable
     case serverError
@@ -24,35 +23,80 @@ enum RegisterError: Error, LocalizedError {
     case invalidResponse
     case validationFailed(String)
     
-    var errorDescription: String? {
+    // MARK: - AppErrorProtocol Implementation
+    var userMessage: String {
         switch self {
         case .urlInvalid:
-            return "URL inválida"
+            return "Error de configuración. Contacta soporte."
         case .requestFailed:
-            return "Error de red"
+            return "Error de conexión. Verifica tu internet."
         case .decodingError:
-            return "Error al procesar respuesta"
+            return "Error procesando respuesta del servidor."
         case .encodingError:
-            return "Error al preparar datos"
+            return "Error preparando datos. Intenta nuevamente."
         case .emailAlreadyExists:
-            return "El correo ya está registrado"
-        case .weakPassword:
-            return "La contraseña debe tener al menos 6 caracteres"
-        case .invalidEmail:
-            return "Formato de correo inválido"
+            return "Este correo ya está registrado. Intenta con otro."
         case .timeout:
-            return "Tiempo de espera agotado"
+            return "La operación tardó demasiado. Intenta nuevamente."
         case .serverUnreachable:
-            return "Servidor no disponible"
+            return "No se pudo conectar al servidor. Intenta más tarde."
         case .serverError:
-            return "Error del servidor"
+            return "Error del servidor. Intenta nuevamente."
         case .noInternet:
-            return "Sin conexión a internet"
+            return "Sin conexión a internet. Verifica tu conexión."
         case .invalidResponse:
-            return "Respuesta inválida del servidor"
+            return "Respuesta inválida del servidor."
         case .validationFailed(let message):
             return message
         }
+    }
+    
+    var errorCode: String {
+        switch self {
+        case .urlInvalid: return "REG_001"
+        case .requestFailed: return "REG_002"
+        case .decodingError: return "REG_003"
+        case .encodingError: return "REG_004"
+        case .emailAlreadyExists: return "REG_005"
+        case .timeout: return "REG_006"
+        case .serverUnreachable: return "REG_007"
+        case .serverError: return "REG_008"
+        case .noInternet: return "REG_009"
+        case .invalidResponse: return "REG_010"
+        case .validationFailed: return "REG_011"
+        }
+    }
+    
+    var shouldRetry: Bool {
+        switch self {
+        case .urlInvalid, .decodingError, .encodingError, .emailAlreadyExists, .invalidResponse, .validationFailed:
+            return false
+        case .requestFailed, .timeout, .serverUnreachable, .serverError, .noInternet:
+            return true
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .noInternet: return "wifi.slash"
+        case .serverUnreachable, .serverError: return "antenna.radiowaves.left.and.right"
+        case .timeout: return "clock.badge.exclamationmark"
+        case .emailAlreadyExists, .validationFailed: return "exclamationmark.triangle"
+        default: return "exclamationmark.circle"
+        }
+    }
+    
+    var iconColor: Color {
+        switch self {
+        case .noInternet, .emailAlreadyExists: return .red
+        case .serverUnreachable, .serverError, .timeout: return .orange
+        case .validationFailed: return .red
+        default: return .gray
+        }
+    }
+    
+    var logMessage: String {
+        return "[\(errorCode)] Register Error: \(userMessage)"
     }
 }
 
@@ -76,24 +120,6 @@ class RegisterService {
         completion: @escaping (Result<RegisteredUser, RegisterError>) -> Void
     ) {
         print("🔄 Iniciando registro para: \(email)")
-        
-        // Validaciones locales
-        guard isValidEmail(email) else {
-            completion(.failure(.invalidEmail))
-            return
-        }
-        
-        guard password.count >= 6 else {
-            completion(.failure(.weakPassword))
-            return
-        }
-        
-        guard !nombres.isEmpty,
-              !apellidoPaterno.isEmpty,
-              !numeroCelular.isEmpty else {
-            completion(.failure(.validationFailed("Todos los campos son requeridos")))
-            return
-        }
         
         // Crear URL
         guard let url = URL(string: baseURL) else {
@@ -176,10 +202,12 @@ class RegisterService {
                         let registerResponse = try JSONDecoder().decode(RegisterResponse.self, from: data)
                         if let user = registerResponse.user {
                             print("✅ Usuario registrado exitosamente: \(user.email)")
+                            print("📧 Correo de verificación enviado automáticamente")
                             completion(.success(user))
                         } else {
                             print("❌ Registro falló: \(registerResponse.message)")
                             completion(.failure(.validationFailed(registerResponse.message)))
+
                         }
                     } catch {
                         print("❌ Error al decodificar respuesta:", error)
@@ -259,12 +287,4 @@ class RegisterService {
         }.resume()
     }
     
-    // MARK: - Private Methods
-    
-    /// Validar formato de email
-    private static func isValidEmail(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        return emailPredicate.evaluate(with: email)
-    }
 }

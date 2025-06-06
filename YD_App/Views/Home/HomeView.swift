@@ -139,7 +139,7 @@ struct LineUpSection: View {
                         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
                     
                     VStack(spacing: 12) {
-                        Image(systemName: "person.3.fill")
+                        Image("person.3.fill")
                             .font(.system(size: 40))
                             .foregroundColor(.gray)
                         
@@ -175,14 +175,14 @@ struct SpeakerCard: View {
             ZStack {
                 Circle()
                     .fill(Color(.systemBackground))
-                    .frame(width: 80, height: 80)
+                    .frame(width: 110, height: 110)
                     .shadow(color: .black.opacity(0.1), radius: 5)
-                
-                Image(systemName: "person.fill")
+
+                Image(speaker.imageName)
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: 40, height: 40)
-                    .foregroundColor(Color("PrimaryColor"))
+                    .scaledToFill()
+                    .frame(width: 110, height: 110)
+                    .clipShape(Circle())
             }
 
             VStack(spacing: 4) {
@@ -191,7 +191,7 @@ struct SpeakerCard: View {
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
-                
+
                 if !speaker.informacion.isEmpty {
                     Text(speaker.informacion)
                         .font(.caption2)
@@ -333,7 +333,7 @@ struct TicketPopupView: View {
                                 type: ticket.descripcion,
                                 price: ticket.precio.formatted(.currency(code: "MXN")),
                                 benefits: ticket.beneficios ?? [],
-                                imageName: "ticket-general",
+                                imageName: ticket.imageName,
                                 count: Binding(
                                     get: { ticketSelection[ticket.id] ?? 0 },
                                     set: { ticketSelection[ticket.id] = $0 }
@@ -401,7 +401,7 @@ struct TicketOptionView: View {
             Image(imageName)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 80, height: 100)
+                .frame(width: 110, height: 110)
                 .clipped()
                 .cornerRadius(8)
                 .overlay(

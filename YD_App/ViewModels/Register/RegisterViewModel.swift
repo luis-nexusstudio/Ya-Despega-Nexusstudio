@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - Register State
 enum RegisterState {
@@ -21,7 +22,7 @@ class RegisterViewModel: ObservableObject {
     
     // MARK: - Published Properties
     @Published var isLoading: Bool = false
-    @Published var currentAppError: AppError?
+    @Published var currentAppError: AppErrorProtocol?
     @Published var isRetrying: Bool = false
     @Published var registerState: RegisterState = .idle
     @Published var registeredUser: RegisteredUser?
@@ -49,24 +50,42 @@ class RegisterViewModel: ObservableObject {
     ) {
         guard !isLoading else { return }
         
-        // Validación previa
-        if let validationError = validateUserData(email: email, password: password, nombres: nombres, apellidoPaterno: apellidoPaterno, numeroCelular: numeroCelular) {
-            currentAppError = AppError.unknown(validationError)
+        let formData = RegisterFormData(
+            nombres: nombres,
+            apellidoPaterno: apellidoPaterno,
+            apellidoMaterno: apellidoMaterno,
+            numeroCelular: numeroCelular,
+            email: email,
+            password: password
+        )
+        
+        let validationResult = UserDataValidator.validate(formData)
+        
+        if !validationResult.isValid {
+            currentAppError = CommonAppError.unknown(validationResult.firstErrorMessage ?? "Datos inválidos")
             registerState = .error
             return
         }
-        
+                
         isLoading = true
         registerState = .loading
         currentAppError = nil
+
         
         Task {
             do {
-                let user = try await registerUserAsync(email: email, password: password, nombres: nombres, apellidoPaterno: apellidoPaterno, apellidoMaterno: apellidoMaterno, numeroCelular: numeroCelular)
+                let user = try await registerUserAsync(
+                    email: email,
+                    password: password,
+                    nombres: nombres,
+                    apellidoPaterno: apellidoPaterno,
+                    apellidoMaterno: apellidoMaterno,
+                    numeroCelular: numeroCelular)
                 
                 self.registeredUser = user
                 self.registerState = .success
                 self.isLoading = false
+                
                 
                 // Manejar timing en ViewModel
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -87,6 +106,7 @@ class RegisterViewModel: ObservableObject {
         }
     }
     
+
     /// Retry registro
     func retryRegister(email: String, password: String, nombres: String, apellidoPaterno: String, apellidoMaterno: String, numeroCelular: String, onSuccess: @escaping () -> Void) {
         guard !isRetrying else { return }
@@ -107,75 +127,20 @@ class RegisterViewModel: ObservableObject {
         isRetrying = false
     }
     
-    /// Validar formato de contraseña
-    func isValidPassword(_ password: String) -> Bool {
-        return password.count >= 6 &&
-               hasSpecialCharacter(password) &&
-               hasUppercaseLetter(password)
-    }
-    
-    /// Verificar si tiene carácter especial
-    func hasSpecialCharacter(_ password: String) -> Bool {
-        return password.rangeOfCharacter(from: CharacterSet(charactersIn: "!@#$%^&*()_+-=[]{}|;:,.<>?")) != nil
-    }
-    
-    /// Verificar si tiene al menos una mayúscula
-    func hasUppercaseLetter(_ password: String) -> Bool {
-        return password.rangeOfCharacter(from: .uppercaseLetters) != nil
-    }
-    
-    /// Validar si el formulario completo es válido
+    // ✅ REEMPLAZAR el método isFormValid
     func isFormValid(nombres: String, apellidoPaterno: String, apellidoMaterno: String, numeroCelular: String, email: String, password: String) -> Bool {
-        return !nombres.isEmpty &&
-               !apellidoPaterno.isEmpty &&
-               !apellidoMaterno.isEmpty &&
-               !numeroCelular.isEmpty &&
-               !email.isEmpty &&
-               isValidPassword(password)
+        let formData = RegisterFormData(
+            nombres: nombres,
+            apellidoPaterno: apellidoPaterno,
+            apellidoMaterno: apellidoMaterno,
+            numeroCelular: numeroCelular,
+            email: email,
+            password: password
+        )
+            
+        return UserDataValidator.validate(formData).isValid
     }
     
-    /// Validar datos antes del registro
-    func validateUserData(
-        email: String,
-        password: String,
-        nombres: String,
-        apellidoPaterno: String,
-        numeroCelular: String
-    ) -> String? {
-        if email.isEmpty {
-            return "El correo es requerido"
-        }
-        
-        if password.isEmpty {
-            return "La contraseña es requerida"
-        }
-        
-        if password.count < 6 {
-            return "La contraseña debe tener al menos 6 caracteres"
-        }
-        
-        if !hasSpecialCharacter(password) {
-            return "La contraseña debe tener al menos un carácter especial"
-        }
-        
-        if !hasUppercaseLetter(password) {
-            return "La contraseña debe tener al menos una mayúscula"
-        }
-        
-        if nombres.isEmpty {
-            return "El nombre es requerido"
-        }
-        
-        if apellidoPaterno.isEmpty {
-            return "El apellido paterno es requerido"
-        }
-        
-        if numeroCelular.isEmpty {
-            return "El número celular es requerido"
-        }
-        
-        return nil
-    }
     
     // MARK: - Private Methods
     
@@ -202,7 +167,6 @@ class RegisterViewModel: ObservableObject {
     }
     
     private func handleError(_ error: Error) {
-        print("❌ RegisterViewModel error:", error.toAppError())
         self.currentAppError = error.toAppError()
     }
 }

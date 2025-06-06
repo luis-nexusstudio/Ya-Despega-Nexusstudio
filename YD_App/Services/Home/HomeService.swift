@@ -8,6 +8,7 @@
 import Foundation
 import FirebaseAuth
 // MARK: - Home Event Service
+
 class HomeService {
     private static let baseURL = URL(string: "http://localhost:4000/api")!
        

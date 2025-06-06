@@ -5,6 +5,14 @@
 //  Created by Luis Melendez on 04/04/25.
 //
 
+
+//
+//  CartViewModel.swift
+//  YD_App
+//
+//  Created by Luis Melendez on 04/04/25.
+//
+
 import SwiftUI
 import FirebaseAuth
 
@@ -12,8 +20,8 @@ import FirebaseAuth
 class CartViewModel: ObservableObject {
     @Published var ticketCounts: [String: Int] = [:]
     @Published var latestExternalReference: String?
-    @Published var checkoutError: String?
-    
+    @Published var currentAppError: AppErrorProtocol?
+
     init() {
         print("🛒 [CartViewModel] Inicializado (sin eventId)")
     }
@@ -40,23 +48,23 @@ class CartViewModel: ObservableObject {
             let count = ticketCounts[ticket.id] ?? 0
             return sum + ticket.precio * Double(count)
         }
-        return roundTo2(raw)
+        return roundTo2(value:raw)
     }
     
     func serviceFeeAmount(for eventDetails: EventDetails?) -> Double {
         guard let eventDetails = eventDetails else { return 0 }
-        return roundTo2(subTotalPrice(for: eventDetails) * eventDetails.cuota_servicio)
+        return roundTo2(value: subTotalPrice(for: eventDetails) * eventDetails.cuota_servicio)
     }
     
     func totalPrice(for eventDetails: EventDetails?) -> Double {
         let subtotal = subTotalPrice(for: eventDetails)
         let fee = serviceFeeAmount(for: eventDetails)
-        return roundTo2(subtotal + fee)
+        return roundTo2(value: subtotal + fee)
     }
     
     // MARK: - Cart Actions
     // ✅ CORREGIDO: Ahora usa Ticket en lugar de TicketType
-    func increment(_ ticket: Ticket) {
+    func increment( ticket: Ticket) {
         ticketCounts[ticket.id, default: 0] += 1
         print("🛒 [CartViewModel] Incrementado ticket \(ticket.id): \(ticketCounts[ticket.id] ?? 0)")
     }
@@ -71,13 +79,13 @@ class CartViewModel: ObservableObject {
         print("🗑️ [CartViewModel] Limpiando carrito - antes: \(ticketCounts)")
         ticketCounts = [:]
         latestExternalReference = nil
-        checkoutError = nil
+        currentAppError = nil
         print("🗑️ [CartViewModel] Carrito limpio")
     }
     
     // ✅ CORREGIDO: Ahora usa EventDetails
     func fetchCheckoutURL(eventDetails: EventDetails, completion: @escaping (URL?) -> Void) {
-        checkoutError = nil
+        currentAppError = nil
         
         print("🔗 [CartViewModel] Creando checkout URL...")
         
@@ -90,14 +98,20 @@ class CartViewModel: ObservableObject {
                 
             case .failure(let error):
                 print("❌ [CartViewModel] Error en checkout:", error.localizedDescription)
-                self?.checkoutError = error.localizedDescription
+                self?.handleError(error: error)
+
                 completion(nil)
             }
         }
     }
     
     // MARK: - Private Helper
-    private func roundTo2(_ value: Double) -> Double {
+    private func roundTo2( value: Double) -> Double {
         (value * 100).rounded() / 100
+    }
+    
+    private func handleError( error: Error) {
+        print("VIEWMODEL CARTVIEW ERROR:",error.toAppError())
+        self.currentAppError = error.toAppError()
     }
 }
