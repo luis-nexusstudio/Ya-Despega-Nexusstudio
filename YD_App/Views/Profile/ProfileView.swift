@@ -1,17 +1,12 @@
-//
-//  ProfileView.swift
-//  YD_App
-//
-//  Updated with RegisterView design by Luis Melendez on 04/06/25.
-//
 
 import SwiftUI
 import FirebaseAuth
 
 struct ProfileView: View {
+    
     @StateObject private var viewModel = ProfileViewModel()
     @State private var showingLogoutAlert = false
-    @State private var shouldNavigateToLogin = false
+    
     @State private var showingPasswordChange = false
     @State private var showingHelpPopup = false
     
@@ -35,22 +30,20 @@ struct ProfileView: View {
         .onAppear {
             viewModel.fetchUserProfile()
         }
+        .navigationBarHidden(true)
         .alert("Cerrar sesión", isPresented: $showingLogoutAlert) {
             Button("Cerrar sesión", role: .destructive) {
                 viewModel.signOut { success in
                     if success {
-                        shouldNavigateToLogin = true
+                        print("🟢 Sesión cerrada exitosamente")
+                    } else {
+                        print("🔴 Error al cerrar sesión")
                     }
                 }
             }
             Button("Cancelar", role: .cancel) { }
         } message: {
             Text("¿Estás seguro que deseas cerrar la sesión?")
-        }
-        .fullScreenCover(isPresented: $shouldNavigateToLogin) {
-            LoginView {
-                shouldNavigateToLogin = false
-            }
         }
         .sheet(isPresented: $showingPasswordChange) {
             ModernPasswordChangeView()
@@ -607,7 +600,7 @@ struct ModernPasswordChangeView: View {
                 ProfileSecureField(
                     icon: "lock.rotation",
                     title: "Nueva contraseña",
-                    placeholder: "Mínimo 6 caracteres",
+                    placeholder: "Mín. 6 caracteres, 1 mayúscula y 1 especial",
                     text: $newPassword,
                     field: .new,
                     focusedField: $focusedField
@@ -635,6 +628,16 @@ struct ModernPasswordChangeView: View {
                     ValidationIndicator(
                         text: "Mínimo 6 caracteres",
                         isValid: newPassword.count >= 6
+                    )
+                    
+                    ValidationIndicator(
+                        text: "Al menos una letra mayúscula",
+                        isValid: containsUppercase(newPassword)
+                    )
+                    
+                    ValidationIndicator(
+                        text: "Al menos un carácter especial (!@#$%^&*)",
+                        isValid: containsSpecialCharacter(newPassword)
                     )
                     
                     ValidationIndicator(
@@ -692,11 +695,22 @@ struct ModernPasswordChangeView: View {
                !newPassword.isEmpty &&
                !confirmPassword.isEmpty &&
                newPassword == confirmPassword &&
-               newPassword.count >= 6
+               newPassword.count >= 6 &&
+               containsSpecialCharacter(newPassword) &&
+               containsUppercase(newPassword)
     }
     
     private var passwordsMatch: Bool {
         return newPassword == confirmPassword && !newPassword.isEmpty && !confirmPassword.isEmpty
+    }
+    
+    private func containsSpecialCharacter(_ password: String) -> Bool {
+        let specialCharacters = "!@#$%^&*()_+-=[]{}|;':\",./<>?"
+        return password.rangeOfCharacter(from: CharacterSet(charactersIn: specialCharacters)) != nil
+    }
+    
+    private func containsUppercase(_ password: String) -> Bool {
+        return password.rangeOfCharacter(from: .uppercaseLetters) != nil
     }
     
     private func updatePassword() {

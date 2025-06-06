@@ -66,6 +66,7 @@ class RegisterViewModel: ObservableObject {
                 
                 self.registeredUser = user
                 self.registerState = .success
+                AuthStateManager.shared.handleSuccessfulRegistration()
                 self.isLoading = false
                 
                 // Manejar timing en ViewModel

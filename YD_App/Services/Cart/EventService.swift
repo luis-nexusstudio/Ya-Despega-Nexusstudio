@@ -10,6 +10,7 @@ import FirebaseAuth
 
 struct EventService {
     static func getEventDetails(eventId: String, completion: @escaping (Result<EventDetails, Error>) -> Void) {
+        
         guard let user = Auth.auth().currentUser else {
             let error = NSError(domain: "", code: 401, userInfo: [NSLocalizedDescriptionKey: "No autorizado"])
             completion(.failure(error))
