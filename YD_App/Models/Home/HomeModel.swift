@@ -17,7 +17,7 @@ struct Coordenadas: Decodable {
 struct LineupSpeaker: Decodable, Identifiable {
     let nombre: String
     let informacion: String
-    
+    let imageName: String
     var id: String { nombre }
 }
 

@@ -43,7 +43,7 @@ struct EventDetails: Decodable {
 struct Ticket: Decodable, Identifiable {
     let id: String
     let descripcion: String
-    let tipo: String
+    let imageName: String
     let precio: Double
     let disponibilidad: Int
     let beneficios: [String]?

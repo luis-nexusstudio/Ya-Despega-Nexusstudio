@@ -8,6 +8,7 @@
 
 import SwiftUI
 import Combine
+import FirebaseAuth
 
 class AppCoordinator: ObservableObject {
     @Published var currentView: AnyView = AnyView(SplashScreenView()) // 👈 inicia con splash

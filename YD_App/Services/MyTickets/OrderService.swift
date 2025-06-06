@@ -7,9 +7,9 @@
 
 import Foundation
 import FirebaseAuth
+import SwiftUICore
 
-// MARK: - Error Types
-enum OrderError: Error, LocalizedError {
+enum OrderError: AppErrorProtocol {
     case urlInvalid
     case requestFailed
     case decodingError
@@ -18,38 +18,100 @@ enum OrderError: Error, LocalizedError {
     case timeout
     case retryExhausted
     case invalidResponse
-    case serverUnreachable  // ← NUEVO
-    case serverError        // ← NUEVO
-    case noInternet         // ← NUEVO
+    case serverUnreachable
+    case serverError
+    case noInternet
     
-    var errorDescription: String? {
+    var userMessage: String {
         switch self {
         case .urlInvalid:
-            return "URL inválida"
+            return "Error de configuración. Contacta soporte."
         case .requestFailed:
-            return "Error de red"
+            return "Error de conexión. Verifica tu internet."
         case .decodingError:
-            return "Error al procesar respuesta"
+            return "Error procesando información de órdenes."
         case .unauthorized:
-            return "No autorizado"
+            return "Tu sesión ha expirado. Inicia sesión nuevamente."
         case .notFound:
-            return "Orden no encontrada"
+            return "La información solicitada no fue encontrada."
         case .timeout:
-            return "Tiempo de espera agotado"
+            return "La operación tardó demasiado. Intenta nuevamente."
         case .retryExhausted:
-            return "Se agotaron los intentos"
+            return "No se pudo obtener la información tras varios intentos."
         case .invalidResponse:
-            return "Respuesta inválida del servidor"
+            return "Respuesta inválida del servidor."
         case .serverUnreachable:
-            return "Servidor no disponible"
+            return "No se pudo conectar al servidor. Intenta más tarde."
         case .serverError:
-            return "Error del servidor"
+            return "Error del servidor. Intenta nuevamente en unos minutos."
         case .noInternet:
-            return "Sin conexión a internet"
+            return "Sin conexión a internet. Verifica tu conexión e intenta nuevamente."
+        }
+        
+    }
+    
+    var errorCode: String {
+        switch self {
+        case .urlInvalid: return "ORD_001"
+        case .requestFailed: return "ORD_002"
+        case .decodingError: return "ORD_003"
+        case .unauthorized: return "ORD_004"
+        case .notFound: return "ORD_005"
+        case .timeout: return "ORD_006"
+        case .retryExhausted: return "ORD_007"
+        case .invalidResponse: return "ORD_008"
+        case .serverUnreachable: return "ORD_009"
+        case .serverError: return "ORD_010"
+        case .noInternet: return "ORD_011"
         }
     }
-}
+    
+    var shouldRetry: Bool {
+        switch self {
+        case .urlInvalid, .decodingError, .unauthorized, .notFound, .retryExhausted, .invalidResponse:
+            return false
+        case .requestFailed, .timeout, .serverUnreachable, .serverError, .noInternet:
+            return true
+        }
+    }
 
+    
+    var icon: String {
+        switch self {
+        case .noInternet:
+            return "wifi.slash"
+        case .serverUnreachable:
+            return "antenna.radiowaves.left.and.right"
+        case .serverError:
+            return "exclamationmark.icloud"
+        case .unauthorized:
+            return "lock.shield"
+        case .notFound:
+            return "magnifyingglass.circle"
+        case .timeout:
+            return "clock.badge.exclamationmark"
+        default: return "exclamationmark.circle"
+        }
+    }
+    
+    var iconColor: Color {
+        switch self {
+        case .noInternet, .serverUnreachable:
+            return .red
+        case .serverError, .timeout:
+            return .orange
+        case .unauthorized:
+            return .yellow
+        case .notFound:
+            return .gray
+        default: return .blue
+        }
+    }
+    
+    var logMessage: String {
+        return "[\(errorCode)] Order Error: \(userMessage)"
+    }
+}
 // MARK: - OrderService
 class OrderService {
     
