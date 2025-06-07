@@ -1,3 +1,10 @@
+//
+//  ProfileView.swift
+//  YD_App
+//
+//  Updated with RegisterView design by Luis Melendez on 04/06/25.
+//  Dark Mode Support Added
+//
 
 import SwiftUI
 import FirebaseAuth
@@ -9,6 +16,8 @@ struct ProfileView: View {
     
     @State private var showingPasswordChange = false
     @State private var showingHelpPopup = false
+    
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         BackgroundGeneralView {
@@ -101,8 +110,13 @@ private extension ProfileView {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(.white)
-                .shadow(color: .black.opacity(0.1), radius: 15, x: 0, y: 5)
+                .fill(Color(.systemBackground))
+                .shadow(
+                    color: colorScheme == .dark ? Color.white.opacity(0.05) : Color.black.opacity(0.1),
+                    radius: 15,
+                    x: 0,
+                    y: 5
+                )
         )
     }
     
@@ -144,7 +158,7 @@ private extension ProfileView {
                 .frame(height: 56)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(.white)
+                        .fill(Color(.systemBackground))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
                                 .stroke(.red, lineWidth: 2)
@@ -207,7 +221,7 @@ private extension ProfileView {
             
             Text("No hay información disponible")
                 .font(.headline)
-                .foregroundColor(.gray)
+                .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 200)
@@ -227,13 +241,15 @@ struct UserProfileForm: View {
     @State private var showingSaveAlert = false
     @FocusState private var focusedField: ProfileField?
     
+    @Environment(\.colorScheme) var colorScheme
+    
     var body: some View {
         VStack(spacing: 20) {
             // Header con botones de acción
             formHeader
             
             Divider()
-                .background(.gray.opacity(0.3))
+                .background(Color(.separator))
             
             // Información personal
             VStack(spacing: 16) {
@@ -279,7 +295,7 @@ struct UserProfileForm: View {
             }
             
             Divider()
-                .background(.gray.opacity(0.3))
+                .background(Color(.separator))
             
             // Información de contacto
             VStack(spacing: 16) {
@@ -506,6 +522,8 @@ struct ModernPasswordChangeView: View {
     @State private var showSuccessAlert = false
     @FocusState private var focusedField: PasswordField?
     
+    @Environment(\.colorScheme) var colorScheme
+    
     var body: some View {
         BackgroundGeneralView {
             VStack(spacing: 0) {
@@ -615,8 +633,13 @@ struct ModernPasswordChangeView: View {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(.white)
-                .shadow(color: .black.opacity(0.1), radius: 15, x: 0, y: 5)
+                .fill(Color(.systemBackground))
+                .shadow(
+                    color: colorScheme == .dark ? Color.white.opacity(0.05) : Color.black.opacity(0.1),
+                    radius: 15,
+                    x: 0,
+                    y: 5
+                )
         )
     }
     
@@ -642,7 +665,7 @@ struct ModernPasswordChangeView: View {
                         .fill(
                             isFormValid && !isLoading
                                 ? Color("PrimaryColor")
-                                : Color.gray
+                                : Color(.systemGray3)
                         )
                 )
             }
@@ -787,12 +810,11 @@ struct ProfileSecureField: View {
 // MARK: - Modern Help View
 struct ModernHelpView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         BackgroundGeneralView {
             VStack(spacing: 0) {
-
-                
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 32) {
                         headerSection
@@ -804,9 +826,7 @@ struct ModernHelpView: View {
             }
         }
     }
-    
-    
-    
+
     private var headerSection: some View {
         VStack(spacing: 8) {
             Text("Preguntas Frecuentes")
@@ -852,8 +872,13 @@ struct ModernHelpView: View {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(.white)
-                .shadow(color: .black.opacity(0.1), radius: 15, x: 0, y: 5)
+                .fill(Color(.systemBackground))
+                .shadow(
+                    color: colorScheme == .dark ? Color.white.opacity(0.05) : Color.black.opacity(0.1),
+                    radius: 15,
+                    x: 0,
+                    y: 5
+                )
         )
     }
 }
@@ -959,9 +984,18 @@ struct ProfileErrorMessageView: View {
 // MARK: - Preview
 struct ProfileView_Previews: PreviewProvider {
     static var previews: some View {
-        ProfileView()
-            .environmentObject(ProfileViewModel())
-            .previewDevice("iPhone 15 Pro")
-            .previewDisplayName("Modern Profile View")
+        Group {
+            ProfileView()
+                .environmentObject(ProfileViewModel())
+                .previewDevice("iPhone 15 Pro")
+                .preferredColorScheme(.light)
+                .previewDisplayName("Light Mode")
+            
+            ProfileView()
+                .environmentObject(ProfileViewModel())
+                .previewDevice("iPhone 15 Pro")
+                .preferredColorScheme(.dark)
+                .previewDisplayName("Dark Mode")
+        }
     }
 }
