@@ -27,7 +27,6 @@ struct ProfileView: View {
                 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 32) {
-                        
                         profileFormSection
                         actionSection
                     }
@@ -816,8 +815,6 @@ struct ModernHelpView: View {
     var body: some View {
         BackgroundGeneralView {
             VStack(spacing: 0) {
-                
-                
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 32) {
                         headerSection
@@ -829,8 +826,7 @@ struct ModernHelpView: View {
             }
         }
     }
-    
-    
+
     private var headerSection: some View {
         VStack(spacing: 8) {
             Text("Preguntas Frecuentes")

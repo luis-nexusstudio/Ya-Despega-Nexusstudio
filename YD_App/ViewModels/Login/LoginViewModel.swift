@@ -13,9 +13,7 @@ import SwiftUI
 @MainActor
 class LoginViewModel: ObservableObject {
     @Published var isLoggedIn = false
-    
-    // Referencia al AuthStateManager
-    private let authStateManager = AuthStateManager.shared
+    private let sessionManager = SessionManager.shared
 
     // 🔵 Inicio de sesión con Google
     func signInWithGoogle(presenting: UIViewController, completion: @escaping (Bool) -> Void) {
@@ -58,8 +56,6 @@ class LoginViewModel: ObservableObject {
                 
                 Task { @MainActor in
                     self.isLoggedIn = true
-                    // Notificar al AuthStateManager
-                    self.authStateManager.handleSuccessfulLogin()
                     completion(true)
                 }
             }
@@ -103,18 +99,10 @@ class LoginViewModel: ObservableObject {
             
             Task { @MainActor in
                 self.isLoggedIn = true
-                // Notificar al AuthStateManager
-                self.authStateManager.handleSuccessfulLogin()
                 completion(true)
             }
         }
     }
     
-    // 🔴 Cerrar sesión
-    func signOut() {
-        Task { @MainActor in
-            authStateManager.signOut()
-            self.isLoggedIn = false
-        }
-    }
+    
 }

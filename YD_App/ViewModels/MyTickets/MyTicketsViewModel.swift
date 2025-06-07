@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 @MainActor
 class MyTicketsViewModel: ObservableObject {
@@ -18,7 +19,10 @@ class MyTicketsViewModel: ObservableObject {
     @Published var isRetrying: Bool = false
     @Published var currentSortOption: OrderSortOption = .dateDesc
     
-    // MARK: - Computed Properties
+    // 🆕 SessionManager integration
+    private let sessionManager = SessionManager.shared
+    
+    // MARK: - Computed Properties (sin cambios)
     var hasOrders: Bool {
         return !orders.isEmpty
     }
@@ -31,7 +35,6 @@ class MyTicketsViewModel: ObservableObject {
         return orders.filter { $0.status.lowercased() == "pending" }
     }
     
-    // Computed property para ordenar las órdenes
     var sortedOrders: [Order] {
         switch currentSortOption {
         case .dateDesc:
@@ -50,13 +53,11 @@ class MyTicketsViewModel: ObservableObject {
             }
         case .statusApproved:
             return orders.sorted { order1, order2 in
-                // Primero aprobados, luego el resto
                 if order1.status.lowercased() == "approved" && order2.status.lowercased() != "approved" {
                     return true
                 } else if order1.status.lowercased() != "approved" && order2.status.lowercased() == "approved" {
                     return false
                 } else {
-                    // Si tienen el mismo estado, ordenar por fecha
                     guard let date1 = order1.createdAt, let date2 = order2.createdAt else {
                         return false
                     }
@@ -65,13 +66,11 @@ class MyTicketsViewModel: ObservableObject {
             }
         case .statusPending:
             return orders.sorted { order1, order2 in
-                // Primero pendientes, luego el resto
                 if order1.status.lowercased() == "pending" && order2.status.lowercased() != "pending" {
                     return true
                 } else if order1.status.lowercased() != "pending" && order2.status.lowercased() == "pending" {
                     return false
                 } else {
-                    // Si tienen el mismo estado, ordenar por fecha
                     guard let date1 = order1.createdAt, let date2 = order2.createdAt else {
                         return false
                     }
@@ -85,7 +84,32 @@ class MyTicketsViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Public Methods
+    // MARK: - Initialization
+    init() {
+        print("🎫 [MyTicketsViewModel] Inicializado con SessionManager")
+        setupSessionObserver()
+    }
+    
+    // 🆕 NUEVO: Setup session observer
+    private func setupSessionObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("SessionDidEnd"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearSessionData()
+        }
+    }
+    
+    // 🆕 NUEVO: Clear session data
+    func clearSessionData() {
+        print("🧹 [MyTicketsViewModel] Limpiando órdenes por fin de sesión")
+        orders = []
+        currentAppError = nil
+        isRetrying = false
+    }
+    
+    // MARK: - 🆕 MÉTODOS MEJORADOS
     func fetchOrders() {
         guard !isLoading else { return }
         
@@ -94,13 +118,66 @@ class MyTicketsViewModel: ObservableObject {
         
         Task {
             do {
-                let fetchedOrders = try await fetchOrdersAsync()
-                self.orders = fetchedOrders
-                self.isLoading = false
+                // 🆕 Usar SessionManager para operación autenticada
+                let fetchedOrders = try await sessionManager.performAuthenticatedOperation { token in
+                    try await self.fetchOrdersWithToken(token: token)
+                }
+                
+                await MainActor.run {
+                    self.orders = fetchedOrders
+                    self.isLoading = false
+                    self.isRetrying = false
+                }
+                
             } catch {
-                self.handleError(error)
-                self.isLoading = false
+                await MainActor.run {
+                    self.handleError(error)
+                    self.isLoading = false
+                    self.isRetrying = false
+                }
             }
+        }
+    }
+    
+    // 🆕 NUEVO: Método separado para fetch con token
+    private func fetchOrdersWithToken(token: String) async throws -> [Order] {
+        guard let url = URL(string: "http://localhost:4000/api/orders") else {
+            throw OrderError.urlInvalid
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30.0
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw OrderError.invalidResponse
+        }
+
+        switch httpResponse.statusCode {
+        case 200...299:
+            do {
+                let orders = try JSONDecoder().decode([Order].self, from: data)
+                return orders
+            } catch {
+                print("❌ Error al decodificar órdenes:", error)
+                throw OrderError.decodingError
+            }
+            
+        case 401:
+            throw OrderError.unauthorized
+            
+        case 404:
+            throw OrderError.notFound
+            
+        case 500...599:
+            throw OrderError.serverError
+            
+        default:
+            throw OrderError.requestFailed
         }
     }
     
@@ -118,16 +195,17 @@ class MyTicketsViewModel: ObservableObject {
         }
     }
     
+    // Resto de métodos sin cambios
     func fetchOrderByExternalReference(_ externalRef: String, completion: @escaping (Order?) -> Void) {
+        // Implementación usando SessionManager si es necesario
+        // Por ahora mantener la implementación actual de OrderService
         OrderService.fetchOrderByExternalReferenceWithRetry(ref: externalRef) { result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let order):
-                    // Actualizar la orden en la lista si ya existe
                     if let index = self.orders.firstIndex(where: { $0.external_reference == externalRef }) {
                         self.orders[index] = order
                     } else {
-                        // Agregar nueva orden al principio de la lista
                         self.orders.insert(order, at: 0)
                     }
                     completion(order)
@@ -139,27 +217,11 @@ class MyTicketsViewModel: ObservableObject {
         }
     }
     
-    // Método para cambiar la opción de ordenamiento
     func changeSortOption(_ option: OrderSortOption) {
         withAnimation(.easeInOut(duration: 0.3)) {
             currentSortOption = option
         }
     }
-    
-    // MARK: - Private Methods
-    private func fetchOrdersAsync() async throws -> [Order] {
-        return try await withCheckedThrowingContinuation { continuation in
-            OrderService.fetchAllOrders { result in
-                switch result {
-                case .success(let orders):
-                    continuation.resume(returning: orders)
-                case .failure(let error):
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-
     
     // MARK: - Lifecycle
     func onAppear() {
@@ -173,10 +235,7 @@ class MyTicketsViewModel: ObservableObject {
     }
     
     private func handleError(_ error: Error) {
-        print(error.toAppError())
+        print("❌ [MyTicketsViewModel] Error:", error.localizedDescription)
         self.currentAppError = error.toAppError()
     }
-
-
-    
 }

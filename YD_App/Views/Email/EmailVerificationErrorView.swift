@@ -11,69 +11,141 @@ import FirebaseAuth
 struct EmailVerificationErrorView: View {
     @StateObject private var verificationViewModel = VerificationViewModel()
     @Environment(\.dismiss) private var dismiss
-    @State private var showSendingEmailOverlay = false
-
     
     let onRetry: () -> Void
     
+    // 🆕 Enum para diferentes estados de verificación
+    enum VerificationAction {
+        case none
+        case sendingEmail
+        case checkingStatus
+        
+        var loadingMessage: String {
+            switch self {
+            case .none:
+                return ""
+            case .sendingEmail:
+                return "Enviando correo de verificación..."
+            case .checkingStatus:
+                return "Verificando estado del email..."
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .none:
+                return ""
+            case .sendingEmail:
+                return "envelope.arrow.triangle.branch"
+            case .checkingStatus:
+                return "arrow.clockwise"
+            }
+        }
+        
+        var title: String {
+            switch self {
+            case .none:
+                return ""
+            case .sendingEmail:
+                return "Enviando email"
+            case .checkingStatus:
+                return "Verificando estado"
+            }
+        }
+    }
+    
+    @State private var currentAction: VerificationAction = .none
+    
     var body: some View {
-        BackgroundGeneralView {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 24) {
-                    // Header con botón de cerrar
-                    headerWithCloseButton
-                    
-                    // Content principal
-                    contentSection
-                    
-                    // Actions
-                    actionSection
-                    
-                    Spacer()
+        ZStack {
+            BackgroundGeneralView {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        // Header con botón de cerrar
+                        headerWithCloseButton
+                        
+                        // Content principal
+                        contentSection
+                        
+                        // Actions
+                        actionSection
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
             }
-        }
-        .overlay {
-            if verificationViewModel.isResendingEmail {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 12) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(1.5)
-                    
-                    Text("Enviando email...")
-                        .foregroundColor(.white)
-                        .font(.headline)
+            .onAppear {
+                verificationViewModel.checkVerificationStatus()
+            }
+            .onChange(of: verificationViewModel.isVerified) { _, isVerified in
+                if isVerified {
+                    // Si se verifica durante la vista, ejecutar retry automáticamente
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        onRetry()
+                        dismiss()
+                    }
                 }
-                .padding(24)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(.black.opacity(0.8))
+            }
+            
+            // 🆕 OVERLAY PROFESIONAL PARA VERIFICACIÓN
+            if currentAction != .none {
+                VerificationLoadingOverlay(
+                    action: currentAction,
+                    onCancel: {
+                        cancelCurrentAction()
+                    }
                 )
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                .animation(.easeInOut(duration: 0.3), value: currentAction)
             }
         }
-        .onAppear {
-            verificationViewModel.checkVerificationStatus()
+        .onChange(of: verificationViewModel.isResendingEmail) { _, isResending in
+            currentAction = isResending ? .sendingEmail : .none
         }
-        .onChange(of: verificationViewModel.isVerified) { _, isVerified in
-            if isVerified {
-                // Si se verifica durante la vista, ejecutar retry automáticamente
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    onRetry()
-                    dismiss()
-                }
+        .onChange(of: verificationViewModel.isLoading) { _, isLoading in
+            if isLoading && currentAction == .none {
+                currentAction = .checkingStatus
+            } else if !isLoading && currentAction == .checkingStatus {
+                currentAction = .none
             }
         }
+    }
+    
+    // MARK: - 🆕 Action Methods
+    private func performResendEmail() {
+        currentAction = .sendingEmail
+        verificationViewModel.resendVerificationEmail()
+        
+        // Auto-timeout después de 15 segundos
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15.0) {
+            if currentAction == .sendingEmail {
+                cancelCurrentAction()
+            }
+        }
+    }
+    
+    private func performCheckStatus() {
+        currentAction = .checkingStatus
+        verificationViewModel.checkVerificationStatus()
+        
+        // Auto-timeout después de 10 segundos
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
+            if currentAction == .checkingStatus {
+                cancelCurrentAction()
+            }
+        }
+    }
+    
+    private func cancelCurrentAction() {
+        currentAction = .none
+        // Aquí podrías cancelar operaciones en curso si es necesario
     }
     
     // Header con botón de cerrar
     private var headerWithCloseButton: some View {
         VStack(spacing: 16) {
-            
             // Contenido del header
             VStack(spacing: 16) {
                 Image(systemName: "envelope.badge.shield.half.filled")
@@ -139,8 +211,8 @@ struct EmailVerificationErrorView: View {
                 )
             }
             
-            // Mensaje de reenvío si existe
-            if let message = verificationViewModel.resendMessage {
+            // Mensaje de reenvío si existe (solo cuando no hay overlay activo)
+            if let message = verificationViewModel.resendMessage, currentAction == .none {
                 VStack(spacing: 8) {
                     HStack {
                         Image(systemName: verificationViewModel.showResendSuccess ? "checkmark.circle.fill" : "info.circle.fill")
@@ -156,6 +228,7 @@ struct EmailVerificationErrorView: View {
                         .fill((verificationViewModel.showResendSuccess ? Color.green : Color.blue).opacity(0.1))
                         .stroke((verificationViewModel.showResendSuccess ? Color.green : Color.blue).opacity(0.3), lineWidth: 1)
                 )
+                .transition(.opacity.combined(with: .scale))
             }
         }
         .padding(20)
@@ -168,18 +241,11 @@ struct EmailVerificationErrorView: View {
     
     private var actionSection: some View {
         VStack(spacing: 16) {
-            // Botón principal de reenvío
-            Button(action: resendVerificationEmail) {
+            // Botón principal de reenvío - 🔄 ACTUALIZADO
+            Button(action: performResendEmail) {
                 HStack {
-                    if verificationViewModel.isResendingEmail {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "envelope.arrow.triangle.branch")
-                    }
-                    
-                    Text(verificationViewModel.isResendingEmail ? "Enviando..." : "Enviar email de verificación")
+                    Image(systemName: "envelope.arrow.triangle.branch")
+                    Text("Enviar email de verificación")
                         .font(.headline)
                         .fontWeight(.semibold)
                 }
@@ -191,24 +257,16 @@ struct EmailVerificationErrorView: View {
                         .fill(Color("PrimaryColor"))
                 )
             }
-            .disabled(verificationViewModel.isResendingEmail)
-            .opacity(verificationViewModel.isResendingEmail ? 0.8 : 1)
+            .disabled(currentAction != .none)
+            .opacity(currentAction != .none ? 0.6 : 1)
             
-            // Botones secundarios
+            // Botones secundarios - 🔄 ACTUALIZADO
             HStack(spacing: 20) {
                 // Verificar estado
-                Button(action: {
-                    verificationViewModel.checkVerificationStatus()
-                }) {
+                Button(action: performCheckStatus) {
                     HStack {
-                        if verificationViewModel.isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: Color("PrimaryColor")))
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        
-                        Text(verificationViewModel.isLoading ? "Verificando..." : "Verificar estado")
+                        Image(systemName: "arrow.clockwise")
+                        Text("Verificar estado")
                     }
                     .font(.subheadline)
                     .foregroundColor(Color("PrimaryColor"))
@@ -219,9 +277,9 @@ struct EmailVerificationErrorView: View {
                             .fill(Color.white.opacity(0.1))
                     )
                 }
-                .disabled(verificationViewModel.isLoading)
+                .disabled(currentAction != .none)
+                .opacity(currentAction != .none ? 0.6 : 1)
             }
-
             
             // Texto de ayuda
             VStack(spacing: 8) {
@@ -238,14 +296,105 @@ struct EmailVerificationErrorView: View {
             .padding(.top, 8)
         }
     }
+}
+
+// MARK: - 🆕 VERIFICATION LOADING OVERLAY COMPONENT
+struct VerificationLoadingOverlay: View {
+    let action: EmailVerificationErrorView.VerificationAction
+    let onCancel: () -> Void
     
-    // MARK: - Actions
-    private func resendVerificationEmail() {
-        verificationViewModel.resendVerificationEmail()
+    @State private var animationScale: CGFloat = 1.0
+    @State private var pulseAnimation: Bool = false
+    @State private var rotationAngle: Double = 0
+    
+    var body: some View {
+        ZStack {
+            // Background with blur effect
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    // Prevenir toques accidentales
+                }
+            
+            VStack(spacing: 24) {
+                // Icon with animation
+                ZStack {
+                    Circle()
+                        .fill(Color("PrimaryColor").opacity(0.2))
+                        .frame(width: 100, height: 100)
+                        .scaleEffect(pulseAnimation ? 1.2 : 1.0)
+                        .opacity(pulseAnimation ? 0.3 : 0.6)
+                        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: pulseAnimation)
+                    
+                    Image(systemName: action.icon)
+                        .font(.system(size: 40, weight: .medium))
+                        .foregroundColor(Color("PrimaryColor"))
+                        .scaleEffect(animationScale)
+                        .rotationEffect(.degrees(action == .checkingStatus ? rotationAngle : 0))
+                        .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: animationScale)
+                }
+                
+                VStack(spacing: 12) {
+                    Text(action.title)
+                        .font(.title2.bold())
+                        .foregroundColor(.white)
+                    
+                    Text(action.loadingMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                    
+                    // Loading indicator
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Color("PrimaryColor")))
+                        .scaleEffect(1.2)
+                }
+                
+                // Cancel button (aparecer después de la animación inicial)
+                Button(action: onCancel) {
+                    Text("Cancelar")
+                        .font(.headline)
+                        .foregroundColor(Color("PrimaryColor"))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 25)
+                                .fill(.white)
+                                .shadow(color: .black.opacity(0.1), radius: 5)
+                        )
+                }
+                .opacity(pulseAnimation ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.5).delay(1.0), value: pulseAnimation)
+            }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.3), radius: 20)
+            )
+            .scaleEffect(animationScale)
+        }
+        .onAppear {
+            // Iniciar animaciones
+            withAnimation(.easeInOut(duration: 0.5)) {
+                animationScale = 1.0
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                pulseAnimation = true
+                
+                // Animación de rotación para "verificando estado"
+                if action == .checkingStatus {
+                    withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                        rotationAngle = 360
+                    }
+                }
+            }
+        }
     }
 }
 
-// MARK: - Helper Views
+// MARK: - Helper Views (sin cambios)
 struct InstructionRow: View {
     let number: String
     let text: String

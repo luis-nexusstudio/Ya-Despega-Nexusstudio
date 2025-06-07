@@ -125,127 +125,158 @@ struct CheckoutResponse {
 }
 
 class CheckoutService {
-    private static let baseURL = "http://localhost:4000/api" // TODO: Move to configuration
+    private static let baseURL = "http://localhost:4000/api"
     
     static func createCheckoutURL(
         eventDetails: EventDetails,
         ticketCounts: [String: Int],
         completion: @escaping (Result<CheckoutResponse, CheckoutError>) -> Void
     ) {
-        guard let user = Auth.auth().currentUser else {
-            completion(.failure(.unauthorized))
-            return
-        }
-
-        user.getIDToken { idToken, error in
-            if error != nil {
-                completion(.failure(.unauthorized))
-                return
-            }
-            
-            guard let idToken = idToken else {
-                completion(.failure(.unauthorized))
-                return
-            }
-
-            // Cálculo de subtotal y cuota redondeada a 2 decimales
-            let subtotal = eventDetails.tickets.reduce(0.0) { acc, ticket in
-                let count = ticketCounts[ticket.id] ?? 0
-                return acc + ticket.precio * Double(count)
-            }
-            let serviceFee = (subtotal * eventDetails.cuota_servicio * 100).rounded() / 100
-
-            // Construcción de ítems
-            var itemsPayload: [[String: Any]] = []
-            for ticket in eventDetails.tickets {
-                let count = ticketCounts[ticket.id] ?? 0
-                guard count > 0 else { continue }
-                itemsPayload.append([
-                    "name": ticket.descripcion.trimmingCharacters(in: .whitespacesAndNewlines),
-                    "qty": count,
-                    "price": round(ticket.precio * 100) / 100
-                ])
-            }
-            
-            if serviceFee > 0 {
-                itemsPayload.append([
-                    "name": "Cuota (\(Int(eventDetails.cuota_servicio * 100))%)",
-                    "qty": 1,
-                    "price": serviceFee
-                ])
-            }
-
-            let payload: [String: Any] = [
-                "items": itemsPayload,
-                "payerEmail": user.email ?? ""
-            ]
-
-            guard let bodyData = try? JSONSerialization.data(withJSONObject: payload) else {
-                completion(.failure(.invalidResponse))
-                return
-            }
-
-            guard let url = URL(string: "\(baseURL)/create-preference") else {
-                completion(.failure(.serverError))
-                return
-            }
-
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
-            request.httpBody = bodyData
-
-            URLSession.shared.dataTask(with: request) { data, response, error in
-                DispatchQueue.main.async {
-                    if error != nil {
-                        completion(.failure(.serverError))
-                        return
+        Task {
+            do {
+                // Usar SessionManager para obtener usuario y email
+                try await SessionManager.shared.requireAuthentication()
+                
+                guard let userEmail = await SessionManager.shared.userEmail else {
+                    await MainActor.run {
+                        completion(.failure(.unauthorized))
                     }
-
-                    guard let data = data else {
-                        completion(.failure(.invalidResponse))
-                        return
-                    }
-
-                    guard let httpResponse = response as? HTTPURLResponse else {
-                        completion(.failure(.invalidResponse))
-                        return
-                    }
-
-                    if httpResponse.statusCode >= 400 {
-                        _ = String(data: data, encoding: .utf8) ?? "Error desconocido"
-                        
-                        // 🔐 MANEJAR ERROR DE VERIFICACIÓN ESPECÍFICAMENTE
-                        if httpResponse.statusCode == 403 {
-                            // Intentar parsear como error de verificación
-                            print("ENTRO AL ERROR DE VALIDAR")
-                            if let jsonData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                               let verificationRequired = jsonData["verification_required"] as? Bool,
-                                verificationRequired {
-                                    completion(.failure(.emailNotVerified))
-                                    return
-                                }
-                            }
-                                                
-                        completion(.failure(.serverError))
-                        return
-                    }
-
-                    guard
-                        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                        let urlString = json["checkoutUrl"] as? String,
-                        let checkoutURL = URL(string: urlString),
-                        let externalRef = json["externalReference"] as? String
-                    else {
-                        completion(.failure(.invalidResponse))
-                        return
-                    }
-
-                    let response = CheckoutResponse(url: checkoutURL, externalReference: externalRef)
-                    completion(.success(response))
+                    return
                 }
-            }.resume()
+                
+                // Preparar payload
+                let payload = prepareCheckoutPayload(
+                    eventDetails: eventDetails,
+                    ticketCounts: ticketCounts,
+                    userEmail: userEmail
+                )
+                
+                guard let bodyData = try? JSONSerialization.data(withJSONObject: payload) else {
+                    await MainActor.run {
+                        completion(.failure(.invalidResponse))
+                    }
+                    return
+                }
+
+                guard let url = URL(string: "\(baseURL)/create-preference") else {
+                    await MainActor.run {
+                        completion(.failure(.serverError))
+                    }
+                    return
+                }
+
+                // Usar SessionManager para realizar operación autenticada
+                let result = try await SessionManager.shared.performAuthenticatedOperation { token in
+                    return try await performCheckoutRequest(url: url, bodyData: bodyData, token: token)
+                }
+                
+                await MainActor.run {
+                    completion(.success(result))
+                }
+                
+            } catch {
+                await MainActor.run {
+                    completion(.failure(mapToCheckoutError(error)))
+                }
+            }
         }
+    }
+    
+    private static func prepareCheckoutPayload(
+        eventDetails: EventDetails,
+        ticketCounts: [String: Int],
+        userEmail: String
+    ) -> [String: Any] {
+        // Cálculo de subtotal y cuota
+        let subtotal = eventDetails.tickets.reduce(0.0) { acc, ticket in
+            let count = ticketCounts[ticket.id] ?? 0
+            return acc + ticket.precio * Double(count)
+        }
+        let serviceFee = (subtotal * eventDetails.cuota_servicio * 100).rounded() / 100
+
+        // Construcción de ítems
+        var itemsPayload: [[String: Any]] = []
+        for ticket in eventDetails.tickets {
+            let count = ticketCounts[ticket.id] ?? 0
+            guard count > 0 else { continue }
+            itemsPayload.append([
+                "name": ticket.descripcion.trimmingCharacters(in: .whitespacesAndNewlines),
+                "qty": count,
+                "price": round(ticket.precio * 100) / 100
+            ])
+        }
+        
+        if serviceFee > 0 {
+            itemsPayload.append([
+                "name": "Cuota (\(Int(eventDetails.cuota_servicio * 100))%)",
+                "qty": 1,
+                "price": serviceFee
+            ])
+        }
+
+        return [
+            "items": itemsPayload,
+            "payerEmail": userEmail
+        ]
+    }
+    
+    private static func performCheckoutRequest(
+        url: URL,
+        bodyData: Data,
+        token: String
+    ) async throws -> CheckoutResponse {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = bodyData
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw CheckoutError.invalidResponse
+        }
+
+        if httpResponse.statusCode >= 400 {
+            if httpResponse.statusCode == 403 {
+                // Manejar error de verificación específicamente
+                if let jsonData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let verificationRequired = jsonData["verification_required"] as? Bool,
+                   verificationRequired {
+                    throw CheckoutError.emailNotVerified
+                }
+            }
+            throw CheckoutError.serverError
+        }
+
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let urlString = json["checkoutUrl"] as? String,
+            let checkoutURL = URL(string: urlString),
+            let externalRef = json["externalReference"] as? String
+        else {
+            throw CheckoutError.invalidResponse
+        }
+
+        return CheckoutResponse(url: checkoutURL, externalReference: externalRef)
+    }
+    
+    private static func mapToCheckoutError(_ error: Error) -> CheckoutError {
+        if let checkoutError = error as? CheckoutError {
+            return checkoutError
+        }
+        
+        if let sessionError = error as? SessionError {
+            switch sessionError {
+            case .userNotAuthenticated, .tokenExpired, .invalidUser:
+                return .unauthorized
+            case .tokenRefreshFailed:
+                return .requestFailed
+            case .logoutFailed:
+                return .serverError
+            }
+        }
+        
+        return error.toAppError() as? CheckoutError ?? .requestFailed
     }
 }
