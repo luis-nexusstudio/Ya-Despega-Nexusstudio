@@ -19,7 +19,7 @@ struct HomeView: View {
         BackgroundGeneralView {
             ZStack(alignment: .bottom) {
                 if homeViewModel.isLoading {
-                    loadingView
+                   // loadingView
                 } else if let appError = homeViewModel.currentAppError {
                     StandardErrorView(
                         error: appError ,
@@ -30,7 +30,7 @@ struct HomeView: View {
                         }
                     )
                 } else if homeViewModel.homeEventData == nil && homeViewModel.speakers.isEmpty {
-                    emptyStateView
+                    //emptyStateView
                 } else {
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 20) {

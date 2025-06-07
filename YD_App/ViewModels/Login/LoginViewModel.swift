@@ -10,8 +10,12 @@ import Firebase
 import GoogleSignIn
 import SwiftUI
 
+@MainActor
 class LoginViewModel: ObservableObject {
     @Published var isLoggedIn = false
+    
+    // Referencia al AuthStateManager
+    private let authStateManager = AuthStateManager.shared
 
     // 🔵 Inicio de sesión con Google
     func signInWithGoogle(presenting: UIViewController, completion: @escaping (Bool) -> Void) {
@@ -41,7 +45,9 @@ class LoginViewModel: ObservableObject {
 
             let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: accessToken)
 
-            Auth.auth().signIn(with: credential) { authResult, error in
+            Auth.auth().signIn(with: credential) { [weak self] authResult, error in
+                guard let self = self else { return }
+                
                 if let error = error {
                     print("Firebase Sign-In error:", error.localizedDescription)
                     completion(false)
@@ -49,24 +55,66 @@ class LoginViewModel: ObservableObject {
                 }
 
                 print("Google Sign-In success:", authResult?.user.email ?? "")
-                self.isLoggedIn = true
-                completion(true)
+                
+                Task { @MainActor in
+                    self.isLoggedIn = true
+                    // Notificar al AuthStateManager
+                    self.authStateManager.handleSuccessfulLogin()
+                    completion(true)
+                }
             }
         }
     }
 
     // 🟡 Inicio de sesión con correo y contraseña
     func signInWithEmail(email: String, password: String, completion: @escaping (Bool) -> Void) {
-        Auth.auth().signIn(withEmail: email, password: password) { authResult, error in
+        // Validación básica
+        guard !email.isEmpty, !password.isEmpty else {
+            print("Email o contraseña vacíos")
+            completion(false)
+            return
+        }
+        
+        Auth.auth().signIn(withEmail: email, password: password) { [weak self] authResult, error in
+            guard let self = self else { return }
+            
             if let error = error {
                 print("Email Sign-In error:", error.localizedDescription)
+                
+                // Manejar errores específicos si lo deseas
+                if let errorCode = AuthErrorCode(rawValue: error._code) {
+                    switch errorCode {
+                    case .wrongPassword:
+                        print("Contraseña incorrecta")
+                    case .invalidEmail:
+                        print("Email inválido")
+                    case .userNotFound:
+                        print("Usuario no encontrado")
+                    default:
+                        print("Error de autenticación: \(errorCode)")
+                    }
+                }
+                
                 completion(false)
                 return
             }
 
             print("Email Sign-In success:", authResult?.user.email ?? "")
-            self.isLoggedIn = true
-            completion(true)
+            
+            Task { @MainActor in
+                self.isLoggedIn = true
+                // Notificar al AuthStateManager
+                self.authStateManager.handleSuccessfulLogin()
+                completion(true)
+            }
+        }
+    }
+    
+    // 🔴 Cerrar sesión
+    func signOut() {
+        Task { @MainActor in
+            authStateManager.signOut()
+            self.isLoggedIn = false
         }
     }
 }

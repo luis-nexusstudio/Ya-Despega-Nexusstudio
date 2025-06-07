@@ -96,17 +96,21 @@ class ProfileViewModel: ObservableObject {
     }
     
     /// Cierra la sesión del usuario actual
-    func signOut(completion: @escaping (Bool) -> Void) {
-        do {
+        func signOut(completion: @escaping (Bool) -> Void) {
             print("🟡 Intentando cerrar sesión...")
-            try Auth.auth().signOut()
-            print("🟢 Sesión cerrada exitosamente")
-            completion(true)
-        } catch {
-            print("🔴 Error al cerrar sesión: \(error.localizedDescription)")
-            self.errorMessage = "Error al cerrar sesión: \(error.localizedDescription)"
-            self.hasError = true
-            completion(false)
+            
+            // Usar Task para llamar al método MainActor
+            Task { @MainActor in
+                // Usar AuthStateManager para cerrar sesión
+                AuthStateManager.shared.signOut()
+                
+                // Limpiar datos locales del perfil
+                self.userProfile = nil
+                self.errorMessage = nil
+                self.hasError = false
+                
+                print("🟢 Sesión cerrada exitosamente")
+                completion(true)
+            }
         }
-    }
 }
