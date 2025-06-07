@@ -95,22 +95,33 @@ class ProfileViewModel: ObservableObject {
         }
     }
     
-    /// Cierra la sesión del usuario actual
-        func signOut(completion: @escaping (Bool) -> Void) {
-            print("🟡 Intentando cerrar sesión...")
-            
-            // Usar Task para llamar al método MainActor
-            Task { @MainActor in
-                // Usar AuthStateManager para cerrar sesión
-                AuthStateManager.shared.signOut()
-                
+    /// Cierra la sesión del usuario actual - ACTUALIZADO PARA USAR SESSIONMANAGER
+    func signOut(completion: @escaping (Bool) -> Void) {
+        print("🟡 Intentando cerrar sesión...")
+        
+        Task {
+            do {
+                // Usar SessionManager para cerrar sesión
+                try await SessionManager.shared.signOut()
                 // Limpiar datos locales del perfil
-                self.userProfile = nil
-                self.errorMessage = nil
-                self.hasError = false
+                await MainActor.run {
+                    self.userProfile = nil
+                    self.errorMessage = nil
+                    self.hasError = false
+                }
                 
                 print("🟢 Sesión cerrada exitosamente")
-                completion(true)
+                await MainActor.run {
+                    completion(true)
+                }
+            } catch {
+                print("🔴 Error al cerrar sesión: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.errorMessage = "Error al cerrar sesión: \(error.localizedDescription)"
+                    self.hasError = true
+                    completion(false)
+                }
             }
         }
+    }
 }

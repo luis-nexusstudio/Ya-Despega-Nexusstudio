@@ -18,7 +18,6 @@ struct ProfileView: View {
                 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 32) {
-                        headerSection
                         profileFormSection
                         actionSection
                     }
@@ -85,15 +84,7 @@ private extension ProfileView {
         .frame(height: 50)
     }
     
-    var headerSection: some View {
-        VStack(spacing: 8) {
-            Text("Mi información")
-                .font(.largeTitle.bold())
-                .foregroundColor(.white)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 20)
-    }
+    
     
     var profileFormSection: some View {
         VStack(spacing: 20) {
@@ -518,8 +509,7 @@ struct ModernPasswordChangeView: View {
     var body: some View {
         BackgroundGeneralView {
             VStack(spacing: 0) {
-                // Header similar al RegisterView
-                modalHeader
+                
                 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 32) {
@@ -541,32 +531,7 @@ struct ModernPasswordChangeView: View {
         }
     }
     
-    private var modalHeader: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .medium))
-                    Text("Cancelar")
-                        .font(.body)
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(.ultraThinMaterial.opacity(0.3))
-                )
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .frame(height: 50)
-    }
+    
     
     private var headerSection: some View {
         VStack(spacing: 8) {
@@ -826,8 +791,7 @@ struct ModernHelpView: View {
     var body: some View {
         BackgroundGeneralView {
             VStack(spacing: 0) {
-                // Header
-                modalHeader
+
                 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 32) {
@@ -841,32 +805,7 @@ struct ModernHelpView: View {
         }
     }
     
-    private var modalHeader: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .medium))
-                    Text("Cerrar")
-                        .font(.body)
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(.ultraThinMaterial.opacity(0.3))
-                )
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .frame(height: 50)
-    }
+    
     
     private var headerSection: some View {
         VStack(spacing: 8) {
