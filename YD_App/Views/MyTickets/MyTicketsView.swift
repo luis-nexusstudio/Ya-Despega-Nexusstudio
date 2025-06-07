@@ -14,7 +14,7 @@ struct MyTicketsView: View {
     var body: some View {
         BackgroundGeneralView {
             if viewModel.isLoading {
-                loadingView
+                //loadingView
             } else if let appError = viewModel.currentAppError {
                 StandardErrorView(
                     error: appError,

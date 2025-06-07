@@ -2,7 +2,7 @@
 //  AuthStateManager.swift
 //  YD_App
 //
-//  Created by Pedro Martinez on 05/06/25.
+//  Created by Pedro Martinez - FIXED VERSION
 //
 
 import SwiftUI
@@ -16,7 +16,7 @@ enum AuthState {
     case unauthenticated // No hay usuario autenticado
 }
 
-// MARK: - AuthStateManager
+// MARK: - AuthStateManager MEJORADO
 @MainActor
 class AuthStateManager: ObservableObject {
     
@@ -25,221 +25,241 @@ class AuthStateManager: ObservableObject {
     
     // MARK: - Published Properties
     @Published var authState: AuthState = .unknown
-    @Published var currentUser: User?
     @Published var isLoading: Bool = true
     
     // MARK: - Private Properties
-    private var authStateHandler: AuthStateDidChangeListenerHandle?
     private var cancellables = Set<AnyCancellable>()
+    private let sessionManager = SessionManager.shared
+    private var hasPerformedInitialCheck = false // 🆕 PREVENIR MÚLTIPLES CHECKS
     
     // MARK: - Computed Properties
     var isAuthenticated: Bool {
-        return authState == .authenticated
+        return sessionManager.isAuthenticated && sessionManager.isReady
+    }
+    
+    var currentUser: User? {
+        return sessionManager.currentUser
     }
     
     var userEmail: String? {
-        return currentUser?.email
+        return sessionManager.userEmail
     }
     
     var userId: String? {
-        return currentUser?.uid
+        return sessionManager.userId
+    }
+    
+    var isEmailVerified: Bool {
+        return sessionManager.isEmailVerified
+    }
+    
+    // 🆕 NUEVO: Estado combinado más confiable
+    var isReady: Bool {
+        return sessionManager.isReady && !isLoading
     }
     
     // MARK: - Initialization
     private init() {
-        setupAuthStateListener()
-        checkInitialAuthState()
+        print("🔧 [AuthStateManager] Inicializando con SessionManager...")
+        setupSessionManagerObserver()
     }
     
-    // MARK: - Auth State Management
-    
-    /// Configura el listener para cambios en el estado de autenticación
-    private func setupAuthStateListener() {
-        authStateHandler = Auth.auth().addStateDidChangeListener { [weak self] auth, user in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                
-                print("🔐 [AuthStateManager] Estado de autenticación cambió")
-                print("   - Usuario: \(user?.email ?? "ninguno")")
-                
-                self.currentUser = user
-                
-                if let user = user {
-                    print("✅ [AuthStateManager] Usuario autenticado: \(user.email ?? "sin email")")
-                    self.authState = .authenticated
+    // MARK: - 🆕 CONFIGURACIÓN MEJORADA DE OBSERVADORES
+    private func setupSessionManagerObserver() {
+        // 🆕 Observar estado de inicialización del SessionManager
+        sessionManager.$isInitializing
+            .sink { [weak self] isInitializing in
+                Task { @MainActor in
+                    guard let self = self else { return }
                     
-                    // Verificar si el token es válido
-                    self.verifyUserToken()
-                } else {
-                    print("❌ [AuthStateManager] No hay usuario autenticado")
-                    self.authState = .unauthenticated
-                }
-                
-                self.isLoading = false
-            }
-        }
-    }
-    
-    /// Verifica el estado inicial de autenticación
-    private func checkInitialAuthState() {
-        print("🔍 [AuthStateManager] Verificando estado inicial de autenticación")
-        
-        if let user = Auth.auth().currentUser {
-            print("✅ [AuthStateManager] Usuario encontrado en caché: \(user.email ?? "sin email")")
-            self.currentUser = user
-            self.authState = .authenticated
-            
-            // Verificar token incluso si hay usuario en caché
-            verifyUserToken()
-        } else {
-            print("❌ [AuthStateManager] No hay usuario en caché")
-            self.authState = .unauthenticated
-            self.isLoading = false
-        }
-    }
-    
-    /// Verifica que el token del usuario sea válido
-    private func verifyUserToken() {
-        guard let user = currentUser else { return }
-        
-        user.getIDTokenResult { [weak self] result, error in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                
-                if let error = error {
-                    print("❌ [AuthStateManager] Error verificando token: \(error.localizedDescription)")
-                    // Si el token no es válido, cerrar sesión
-                    self.signOut()
-                } else if let result = result {
-                    print("✅ [AuthStateManager] Token válido hasta: \(result.expirationDate)")
-                    
-                    // Verificar si el token está por expirar (menos de 5 minutos)
-                    let timeUntilExpiration = result.expirationDate.timeIntervalSinceNow
-                    if timeUntilExpiration < 300 { // 5 minutos
-                        print("⚠️ [AuthStateManager] Token próximo a expirar, renovando...")
-                        self.refreshToken()
+                    if !isInitializing && !self.hasPerformedInitialCheck {
+                        print("🔄 [AuthStateManager] SessionManager listo, verificando estado inicial...")
+                        await self.performInitialAuthCheck()
                     }
                 }
             }
-        }
-    }
-    
-    /// Renueva el token del usuario
-    private func refreshToken() {
-        currentUser?.getIDTokenForcingRefresh(true) { token, error in
-            if let error = error {
-                print("❌ [AuthStateManager] Error renovando token: \(error.localizedDescription)")
-            } else {
-                print("✅ [AuthStateManager] Token renovado exitosamente")
+            .store(in: &cancellables)
+        
+        // 🆕 Observar cambios en autenticación (MEJORADO)
+        sessionManager.$isAuthenticated
+            .combineLatest(sessionManager.$isInitializing)
+            .sink { [weak self] (isAuthenticated, isInitializing) in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    
+                    // Solo procesar si SessionManager está listo
+                    guard !isInitializing else { return }
+                    
+                    await self.updateAuthState(isAuthenticated: isAuthenticated)
+                }
             }
+            .store(in: &cancellables)
+           
+        // 🆕 Observar errores de sesión CRÍTICOS únicamente
+        sessionManager.$sessionError
+            .compactMap { $0 }
+            .sink { [weak self] error in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    
+                    print("⚠️ [AuthStateManager] Error de sesión recibido: \(error.errorCode)")
+                    
+                    // Solo cambiar estado para errores críticos
+                    if self.isCriticalSessionError(error) {
+                        print("🚨 [AuthStateManager] Error crítico, marcando como no autenticado")
+                        self.authState = .unauthenticated
+                        self.isLoading = false
+                    }
+                }
+            }
+            .store(in: &cancellables)
+    }
+    
+    /// 🆕 MÉTODO NUEVO: Verificación inicial de autenticación
+    private func performInitialAuthCheck() async {
+        guard !hasPerformedInitialCheck else { return }
+        hasPerformedInitialCheck = true
+        
+        print("🔍 [AuthStateManager] Realizando verificación inicial de autenticación...")
+        
+        // Esperar un poco más para asegurar que SessionManager esté completamente configurado
+        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 segundos
+        
+        await updateAuthState(isAuthenticated: sessionManager.isAuthenticated)
+    }
+    
+    /// 🆕 MÉTODO NUEVO: Actualización centralizada del estado de auth
+    private func updateAuthState(isAuthenticated: Bool) async {
+        print("🔄 [AuthStateManager] Actualizando estado: autenticado=\(isAuthenticated)")
+        
+        if isAuthenticated {
+            print("✅ [AuthStateManager] Usuario autenticado confirmado")
+            self.authState = .authenticated
+        } else {
+            print("❌ [AuthStateManager] Usuario no autenticado confirmado")
+            self.authState = .unauthenticated
+        }
+        
+        self.isLoading = false
+    }
+    
+    /// 🆕 MÉTODO NUEVO: Detectar errores críticos de sesión
+    private func isCriticalSessionError(_ error: AppErrorProtocol) -> Bool {
+        switch error.errorCode {
+        case "SES_001", "SES_002", "SES_005": // userNotAuthenticated, tokenExpired, invalidUser
+            return true
+        default:
+            return false
         }
     }
     
-    // MARK: - Public Methods
+    // MARK: - 🆕 MÉTODOS PÚBLICOS MEJORADOS
     
     /// Actualiza el estado después de un login exitoso
     func handleSuccessfulLogin() {
-        print("🎉 [AuthStateManager] Login exitoso procesado")
-        // El listener de Firebase se encargará de actualizar el estado
+        print("🎉 [AuthStateManager] Login exitoso - delegando a SessionManager")
+        // SessionManager detectará el cambio automáticamente
+        // Solo actualizar loading state
+        isLoading = true
     }
     
     /// Actualiza el estado después de un registro exitoso
     func handleSuccessfulRegistration() {
-        print("🎉 [AuthStateManager] Registro exitoso procesado")
-        // El listener de Firebase se encargará de actualizar el estado
+        print("🎉 [AuthStateManager] Registro exitoso - delegando a SessionManager")
+        // SessionManager detectará el cambio automáticamente
+        isLoading = true
     }
     
-    /// Cierra la sesión del usuario
+    /// Cierra la sesión usando SessionManager
     func signOut() {
-        do {
-            print("🚪 [AuthStateManager] Cerrando sesión...")
-            try Auth.auth().signOut()
-            
-            // Limpiar datos locales si es necesario
-            clearLocalData()
-            
-            print("✅ [AuthStateManager] Sesión cerrada exitosamente")
-        } catch {
-            print("❌ [AuthStateManager] Error al cerrar sesión: \(error.localizedDescription)")
-        }
-    }
-    
-    /// Limpia datos locales después de cerrar sesión
-    private func clearLocalData() {
-        // Aquí puedes limpiar cualquier dato en caché, UserDefaults, etc.
-        print("🧹 [AuthStateManager] Limpiando datos locales")
+        print("🚪 [AuthStateManager] Iniciando sign out via SessionManager...")
+        isLoading = true
         
-        // Ejemplo: Limpiar UserDefaults específicos
-        //UserDefaults.standard.removeObject(forKey: "cached_user_data")
-        
-        // Notificar a otras partes de la app que deben limpiar sus datos
-        NotificationCenter.default.post(name: NSNotification.Name("UserDidSignOut"), object: nil)
-    }
-    
-    // MARK: - Token Management
-    
-    /// Obtiene el token actual del usuario
-    func getCurrentToken(completion: @escaping (String?) -> Void) {
-        guard let user = currentUser else {
-            completion(nil)
-            return
-        }
-        
-        user.getIDToken { token, error in
-            if let error = error {
-                print("❌ [AuthStateManager] Error obteniendo token: \(error.localizedDescription)")
-                completion(nil)
-            } else {
-                completion(token)
-            }
-        }
-    }
-    
-    /// Obtiene el token forzando renovación si es necesario
-    func getFreshToken(completion: @escaping (String?) -> Void) {
-        guard let user = currentUser else {
-            completion(nil)
-            return
-        }
-        
-        user.getIDTokenForcingRefresh(true) { token, error in
-            if let error = error {
-                print("❌ [AuthStateManager] Error obteniendo token fresco: \(error.localizedDescription)")
-                completion(nil)
-            } else {
-                completion(token)
-            }
-        }
-    }
-    
-    // MARK: - Deinit
-    
-    deinit {
-        // En Firebase Auth para iOS, el handler se remueve automáticamente
-        // pero si quieres removerlo explícitamente:
-        if let handler = authStateHandler {
-            Auth.auth().removeStateDidChangeListener(handler)
-        }
-    }
-}
-
-// MARK: - Convenience Extensions
-
-extension AuthStateManager {
-    /// Verifica si hay una sesión activa de forma asíncrona
-    func checkAuthStatus() async -> Bool {
-        return await withCheckedContinuation { continuation in
-            if let user = Auth.auth().currentUser {
-                user.getIDTokenResult { result, error in
-                    if error == nil && result != nil {
-                        continuation.resume(returning: true)
-                    } else {
-                        continuation.resume(returning: false)
-                    }
+        Task {
+            do {
+                try await sessionManager.signOut()
+                print("✅ [AuthStateManager] Sign out exitoso")
+            } catch {
+                print("❌ [AuthStateManager] Error en sign out: \(error)")
+                // Forzar estado no autenticado incluso si falla
+                await MainActor.run {
+                    self.authState = .unauthenticated
+                    self.isLoading = false
                 }
-            } else {
-                continuation.resume(returning: false)
             }
         }
+    }
+    
+    /// 🆕 NUEVO: Obtener token con manejo de AuthStateManager
+    func getCurrentToken() async throws -> String {
+        guard authState == .authenticated else {
+            throw SessionError.userNotAuthenticated
+        }
+        return try await sessionManager.getCurrentToken()
+    }
+        
+    /// 🆕 NUEVO: Obtener token fresco
+    func getFreshToken() async throws -> String {
+        guard authState == .authenticated else {
+            throw SessionError.userNotAuthenticated
+        }
+        return try await sessionManager.getFreshToken()
+    }
+        
+    /// 🆕 MEJORADO: Verificación de estado más robusta
+    func checkAuthStatus() async -> Bool {
+        // Esperar a que termine la inicialización
+        while isLoading {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        
+        return authState == .authenticated && sessionManager.isAuthenticated
+    }
+    
+    /// 🆕 NUEVO: Forzar verificación completa de autenticación
+    func forceAuthCheck() async {
+        print("🔄 [AuthStateManager] Forzando verificación de autenticación...")
+        isLoading = true
+        
+        try? await sessionManager.waitForInitialization()
+        await updateAuthState(isAuthenticated: sessionManager.isAuthenticated)
+    }
+    
+    /// 🆕 NUEVO: Verificar si el usuario está listo para operar
+    func ensureReady() async throws {
+        // Esperar a que estemos completamente listos
+        while !isReady {
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        
+        guard authState == .authenticated else {
+            throw SessionError.userNotAuthenticated
+        }
+    }
+    
+    // MARK: - 🆕 MÉTODOS DE CONVENIENCIA DELEGADOS
+    
+    /// Realizar operación autenticada (delegado a SessionManager)
+    func performAuthenticatedOperation<T>(
+        operation: @escaping (String) async throws -> T
+    ) async throws -> T {
+        try await ensureReady()
+        return try await sessionManager.performAuthenticatedOperation(operation: operation)
+    }
+    
+    /// Obtener UID actual
+    func withCurrentUserId<T>(
+        operation: @escaping (String) async throws -> T
+    ) async throws -> T {
+        try await ensureReady()
+        return try await sessionManager.withCurrentUserId(operation: operation)
+    }
+    
+    /// Obtener email actual
+    func withCurrentUserEmail<T>(
+        operation: @escaping (String) async throws -> T
+    ) async throws -> T {
+        try await ensureReady()
+        return try await sessionManager.withCurrentUserEmail(operation: operation)
     }
 }
